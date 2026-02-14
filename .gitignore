@@ -1,0 +1,5 @@
+build/
+out/
+
+# User for LSP only
+.clangd

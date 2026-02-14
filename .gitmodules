@@ -1,0 +1,7 @@
+[submodule "third_party/lua"]
+	path = third_party/lua
+	url = https://github.com/lua/lua.git
+	branch = v5.4
+[submodule "third_party/libmicrohttpd2"]
+	path = third_party/libmicrohttpd2
+	url = https://git.gnunet.org/libmicrohttpd2.git
