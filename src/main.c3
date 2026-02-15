@@ -18,6 +18,7 @@ fn void main()
   });
 
   r.post("/list/create", fn (Context *ctx) {
+    io::printn(ctx.req.formData);
     ctx.html(templates::render("list/create.html"));
   });
 

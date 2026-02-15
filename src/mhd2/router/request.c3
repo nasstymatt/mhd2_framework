@@ -1,6 +1,10 @@
 module mhd2::router;
 
-struct Request {
+import std::collections::map;
+
+struct Request
+{
   HttpMethod method;
   String path;
+  HashMap{String, String} formData;
 }
