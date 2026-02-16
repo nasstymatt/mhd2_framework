@@ -1,39 +1,126 @@
 module templates;
 
+import lua;
+
 import std::collections::map;
-import templates::gen;
+import std::io::path;
+import std::io::file;
+import std::io::os;
 import std::thread;
-import std::io;
+import libc;
+
+String basePath = "build/web/views";
+
+struct TemplateEntry
+{
+  String path;
+  char[] contents;
+  long timestamp;
+}
+
+HashMap{String, TemplateEntry} tplSrcCache @local;
+Mutex tplSrcMtx @local;
+
+fn void initTplSrcCache() @local @init
+{
+  tplSrcCache.init(mem);
+  tplSrcMtx.init()!!;
+}
+
+fn void freeTplSrcCache() @local @finalizer
+{
+  tplSrcMtx.lock();
+  tplSrcCache.@each(; key, value)
+  {
+    if (value.contents.len > 0) free(value.contents);
+  };
+  tplSrcCache.free();
+  tplSrcMtx.unlock();
+  tplSrcMtx.destroy();
+}
+
+fn TemplateEntry? findTemplate(String name)
+{
+  tplSrcMtx.lock();
+  TemplateEntry? cached = tplSrcCache[name];
+  tplSrcMtx.unlock();
+
+  Path p = path::temp(basePath)!!
+    .tappend(name.treplace(".html", ".lua"))!!;
+
+  Stat stat;
+  os::native_stat(&stat, p.str_view())!!;
+
+  if (catch err = cached)
+  {
+    switch (err)
+    {
+      case NOT_FOUND:
+        char[] buf = readTplFile(p);
+        tplSrcMtx.lock();
+        TemplateEntry te = { p.str_view(), buf, stat.st_mtime };
+        tplSrcCache[name] = te;
+        tplSrcMtx.unlock();
+        return te;
+      default:
+        return err~;
+    }
+  }
+
+  if (cached.timestamp < stat.st_mtime)
+  {
+    char[] buf = readTplFile(p);
+    tplSrcMtx.lock();
+    free(cached.contents);
+    TemplateEntry te = { p.str_view(), buf, stat.st_mtime };
+    tplSrcCache[name] = te;
+    tplSrcMtx.unlock();
+    return te;
+  }
+
+  return cached;
+}
+
+fn char[] readTplFile(Path p) @local
+{
+    char[] buffer = mem::new_array(char, path::file_size(p))!!;
+    File file = file::open_path(p, "r")!!;
+
+    defer (void)file.close();
+
+    file.read(buffer)!!;
+    return buffer;
+}
 
 const String TPL_CACHE_KEY = "TPL_CACHE";
 
-fn LuaState* getLua() @private
+fn State* getLua() @private
 {
-  tlocal LuaState* l = null;
+  tlocal State* l = null;
   if (l != null) return l;
 
-  l = luaLNewState();
+  l = lua::newState();
   assert(l != null, "Unable to create Lua state");
 
-  luaLRequireF(l, "_G", &luaOpenBase, 1);
-  luaPop(l, 1);
+  lua::requireF(l, "_G", &lua::openBase, 1);
+  lua::pop(l, 1);
 
-  luaLRequireF(l, "table", &luaOpenTable, 1);
-  luaPop(l, 1);
+  lua::requireF(l, "table", &lua::openTable, 1);
+  lua::pop(l, 1);
 
-  luaLRequireF(l, "string", &luaOpenString, 1);
-  luaPop(l, 1);
+  lua::requireF(l, "string", &lua::openString, 1);
+  lua::pop(l, 1);
 
-  luaLRequireF(l, "math", &luaOpenMath, 1);
-  luaPop(l, 1);
+  lua::requireF(l, "math", &lua::openMath, 1);
+  lua::pop(l, 1);
 
-  lua_pushcclosure(l, &lLoadTemplate, 0);
-  lua_setglobal(l, "load_template");
+  lua::pushClosure(l, &lLoadTemplate, 0);
+  lua::setGlobal(l, "load_template");
 
   // registry[TPL_CACHE_KEY] = {}
-  luaPushLString(l, TPL_CACHE_KEY, TPL_CACHE_KEY.len);
-  luaCreateTable(l, 0, 0);
-  luaSetTable(l, LUA_REGISTRYINDEX);
+  lua::pushLString(l, TPL_CACHE_KEY, TPL_CACHE_KEY.len);
+  lua::createTable(l, 0, 0);
+  lua::setTable(l, lua::LUA_REGISTRYINDEX);
 
   return l;
 }
@@ -43,102 +130,102 @@ fn LuaState* getLua() @private
 *>
 fn String render(String path, args...)
 {
-  LuaState* l = getLua();
-  TemplateEntry te = gen::findTemplate(path)!!;
+  State* l = getLua();
+  TemplateEntry te = findTemplate(path)!!;
 
-  luaSetTop(l, 0);
+  lua::setTop(l, 0);
 
-  assert(pushTemplateFnCached(l, path, te), "Lua template load error: %s", luaPopError(l));
+  assert(pushTemplateFnCached(l, path, te), "Lua template load error: %s", lua::popError(l));
 
-  luaPushAll(l, ...args); // push vars table
-  luaPushNil(l); // No yields allowed in child template, push nil as a second argument
+  lua::pushAll(l, ...args); // push vars table
+  lua::pushNil(l); // No yields allowed in child template, push nil as a second argument
 
-  assert(luaPcall(l, 2, 1, 0) == LuaThreadStatus.OK, "Lua render error: %s", luaPopError(l));
+  assert(lua::pcall(l, 2, 1, 0) == lua::ThreadStatus.OK, "Lua render error: %s", lua::popError(l));
 
-  String result = luaToString(l, -1).str_view();
-  luaPop(l, 1);
+  String result = lua::toString(l, -1).str_view();
+  lua::pop(l, 1);
 
   return result;
 }
 
-fn int lLoadTemplate(LuaState* l) @local
+fn int lLoadTemplate(State* l) @local
 {
-  ZString name = luaLCheckLString(l, 1, null);
+  ZString name = lua::checkLString(l, 1, null);
 
-  TemplateEntry? te = gen::findTemplate(name.str_view());
-  if (catch err = te) return luaL_error(l, "template not found: %s", name);
+  TemplateEntry? te = findTemplate(name.str_view());
+  if (catch err = te) return lua::lError(l, "template not found: %s", name);
 
-  if (!pushTemplateFnCached(l, name.str_view(), te)) return lua_error(l);
+  if (!pushTemplateFnCached(l, name.str_view(), te)) return lua::error(l);
 
   return 1;
 }
 
-fn bool pushTemplateFnCached(LuaState* l, String name, TemplateEntry te) @private
+fn bool pushTemplateFnCached(State* l, String name, TemplateEntry te) @local
 {
   // cache = registry["TPL_CACHE"]
-  luaPushLString(l, TPL_CACHE_KEY, TPL_CACHE_KEY.len);
-  luaGetTable(l, LUA_REGISTRYINDEX);                 // stack: cache
+  lua::pushLString(l, TPL_CACHE_KEY, TPL_CACHE_KEY.len);
+  lua::getTable(l, lua::LUA_REGISTRYINDEX);                 // stack: cache
 
   // entry = cache[name]
-  luaPushLString(l, name.ptr, name.len);
-  luaGetTable(l, -2);                                // stack: cache, entry|nil
+  lua::pushLString(l, name.ptr, name.len);
+  lua::getTable(l, -2);                                // stack: cache, entry|nil
 
   bool need_recompile = true;
 
-  if (luaIsTable(l, -1))
+  if (lua::isTable(l, -1))
   {
     // entry.ts
-    luaGetField(l, -1, "ts");                        // stack: cache, entry, ts
+    lua::getField(l, -1, "ts");                        // stack: cache, entry, ts
     ulong cached_ts = 0;
-    if (luaIsInteger(l, -1)) cached_ts = luaToIntegerX(l, -1, &&1);
-    luaPop(l, 1);                                    // pop ts
+    if (lua::isInteger(l, -1)) cached_ts = lua::toIntegerX(l, -1, &&1);
+    lua::pop(l, 1);                                    // pop ts
 
     if (cached_ts == te.timestamp)
     {
       // entry.fn
-      luaGetField(l, -1, "fn");                      // stack: cache, entry, fn
-      if (luaIsFunction(l, -1))
+      lua::getField(l, -1, "fn");                      // stack: cache, entry, fn
+      if (lua::isFunction(l, -1))
       {
-        luaRemove(l, -2);                            // drop entry, keep fn
-        luaRemove(l, -2);                            // drop cache, keep fn
+        lua::remove(l, -2);                            // drop entry, keep fn
+        lua::remove(l, -2);                            // drop cache, keep fn
         return true;
       }
-      luaPop(l, 1);                                  // pop non-fn
+      lua::pop(l, 1);                                  // pop non-fn
     }
   }
 
-  luaPop(l, 1);                                      // pop entry|nil
+  lua::pop(l, 1);                                      // pop entry|nil
 
   // Compile: loadbuffer(te.contents) -> chunk
-  if (luaLLoadBufferX(l, te.contents, te.contents.len, name.zstr_tcopy(), "t") != LuaThreadStatus.OK)
+  if (lua::loadBufferX(l, te.contents, te.contents.len, name.zstr_tcopy(), "t") != lua::ThreadStatus.OK)
   {
-    luaRemove(l, -2);                                // drop cache, leave error
+    lua::remove(l, -2);                                // drop cache, leave error
     return false;
   }
 
   // Run chunk: chunk() -> render_fn
-  if (luaPcall(l, 0, 1, 0) != LuaThreadStatus.OK)
+  if (lua::pcall(l, 0, 1, 0) != lua::ThreadStatus.OK)
   {
-    luaRemove(l, -2);                                // drop cache, leave error
+    lua::remove(l, -2);                                // drop cache, leave error
     return false;
   }
   // stack: cache, render_fn
 
   // entry = { ts = te.timestamp, fn = render_fn }
-  luaCreateTable(l, 0, 2);                           // stack: cache, render_fn, entry
+  lua::createTable(l, 0, 2);                           // stack: cache, render_fn, entry
 
-  luaPushInt(l, te.timestamp);
-  luaSetField(l, -2, "ts");
+  lua::pushInt(l, te.timestamp);
+  lua::setField(l, -2, "ts");
 
-  luaPushValue(l, -2);                               // push render_fn
-  luaSetField(l, -2, "fn");
+  lua::pushValue(l, -2);                               // push render_fn
+  lua::setField(l, -2, "fn");
 
   // cache[name] = entry
-  luaPushLString(l, name.ptr, name.len);             // key
-  luaPushValue(l, -2);                               // entry
-  luaSetTable(l, -5);
+  lua::pushLString(l, name.ptr, name.len);             // key
+  lua::pushValue(l, -2);                               // entry
+  lua::setTable(l, -5);
 
-  luaPop(l, 1);                                      // pop entry
-  luaRemove(l, -2);                                  // drop cache, keep render_fn
+  lua::pop(l, 1);                                      // pop entry
+  lua::remove(l, -2);                                  // drop cache, keep render_fn
   return true;
 }

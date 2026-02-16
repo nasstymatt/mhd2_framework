@@ -105,7 +105,7 @@ end
 	return table.concat(parts)
 end
 
-local tpl_dir = arg[1] or "templates"
+local tpl_dir = arg[1] or "web/views"
 
 local function read_all(path)
 	local f = assert(io.open(path, "rb"))
@@ -123,7 +123,7 @@ local function ensure_dirs(path)
 	local accum = ""
 	for part in dir:gmatch("[^" .. sep .. "]+") do
 		accum = accum .. part .. sep
-		os.execute(string.format('mkdir "%s" 2>nul', accum))
+		os.execute(string.format('mkdir "%s" 2>/dev/null', accum))
 	end
 end
 
@@ -135,19 +135,19 @@ local function write_out(path, content)
 	return ok
 end
 
-local function bytes_to_c3(name, bytes)
-	io.write(("const char[] %s = {"):format(name))
-	for i = 1, #bytes do
-		if (i - 1) % 16 == 0 then
-			io.write("\n  ")
-		end
-		io.write(string.byte(bytes, i))
-		if i < #bytes then
-			io.write(", ")
-		end
-	end
-	io.write("\n};\n\n")
-end
+-- local function bytes_to_c3(name, bytes)
+-- 	io.write(("const char[] %s = {"):format(name))
+-- 	for i = 1, #bytes do
+-- 		if (i - 1) % 16 == 0 then
+-- 			io.write("\n  ")
+-- 		end
+-- 		io.write(string.byte(bytes, i))
+-- 		if i < #bytes then
+-- 			io.write(", ")
+-- 		end
+-- 	end
+-- 	io.write("\n};\n\n")
+-- end
 
 local paths = {}
 for path in io.popen("find " .. tpl_dir .. ' -type f -name "*.html"'):lines() do
@@ -156,8 +156,8 @@ end
 table.sort(paths)
 
 -- emit blobs
-local entries = {}
-for idx, path in ipairs(paths) do
+-- local entries = {}
+for _, path in ipairs(paths) do
 	local src = read_all(path)
 	local lua_src = transpile(src)
 	write_out("build/" .. path:gsub(".html", ".lua"), lua_src)
