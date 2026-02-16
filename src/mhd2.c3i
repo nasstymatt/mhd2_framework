@@ -1,0 +1,220 @@
+module mhd2;
+
+alias Request = void;
+alias Response = void;
+alias Daemon = void;
+alias Action = void;
+
+enum HttpMethod : const inline int
+{
+  OTHER = 255,
+
+  /* Main HTTP methods. */
+  GET = 1,
+  HEAD = 2,
+  POST = 3,
+  PUT = 4,
+  DELETE = 5,
+  OPTIONS = 7,
+}
+
+enum PostEncoding : const int
+{
+  OTHER,
+  FORM_URLENCODED,
+  MULTIPART_FORM_DATA,
+  TEXT_PLAIN,
+}
+
+enum AddressFamily : const CInt
+{
+  AF_NONE,
+  AF_AUTO,
+}
+
+enum HttpStatusCode : const CInt
+{
+  OK = 200,
+  NOT_FOUND = 404,
+}
+
+enum StatusCode : const CInt
+{
+  OK = 0,
+}
+
+enum DaemonOption : const CInt
+{
+  WORK_MODE = 40,
+  BIND_PORT = 80,
+}
+
+enum WorkMode : const CInt
+{
+  WORKER_THREADS = 24
+}
+
+enum PostParseResult : const int
+{
+  OK = 0,
+  REQUEST_EMPTY = 1,
+  OK_BAD_TERMINATION = 2,
+  PARTIAL_INVALID_POST_FORMAT = 3,
+  FAILED_NO_POOL_MEM = 60,
+  FAILED_NO_LARGE_BUF_MEM = 61,
+  FAILED_UNKNOWN_CNTN_TYPE = 80,
+  FAILED_NO_CNTN_TYPE = 81,
+  FAILED_HEADER_NO_BOUNDARY = 82,
+  FAILED_HEADER_MISFORMED = 83,
+  FAILED_HEADER_NOT_MPART = 84,
+  FAILED_INVALID_POST_FORMAT = 90,
+}
+
+enum UploadActionType : const inline CInt
+{
+  NO_ACTION = 0,
+  CONTINUE,
+  RESPONSE,
+  SUSPEND,
+  // Only if MHD compiled with HTTP Upgrade support
+  UPGRADE,
+  ABORT,
+}
+
+union UploadActionData
+{
+  mhd2::Response *response;
+  ulong[2] _abi;
+}
+
+struct UploadAction
+{
+  UploadActionType act;
+  UploadActionData data;
+}
+
+struct String
+{
+  usz len;
+  ZString cstr;
+}
+
+struct StringNullable
+{
+  usz len;
+  ZString cstr;
+}
+
+struct WorkModeWithParam
+{
+  WorkMode mode;
+  WorkModeParam params;
+}
+
+struct DaemonOptionValueBind
+{
+  AddressFamily af;
+  CUShort port;
+}
+
+// sizeof = 16
+union WorkModeParam
+{
+  ulong[2] _abi;
+  uint numWorkerThreads;
+}
+
+// sizeof = 24
+union DaemonOptionValue
+{
+  ulong[3] _abi;
+  WorkModeWithParam workMode;
+  DaemonOptionValueBind bindPort;
+}
+
+struct DaemonOptionAndValue
+{
+  DaemonOption opt;
+  DaemonOptionValue val;
+}
+
+alias UpgradedHandle = void;
+
+alias HandlerFn = fn Action* (void *cls, Request *mreq, mhd2::String *path, HttpMethod method, ulong uploadSize);
+
+alias FreeCallback = fn void (void *cls);
+
+alias PostDataReader = fn UploadAction* (void *cls,
+                                               Request *req,
+                                         mhd2::String *name,
+                       mhd2::String *filename,
+                       mhd2::StringNullable *contentType,
+                       mhd2::StringNullable *encoding,
+                       usz size,
+                       void *data,
+                       ulong off,
+                       bool finalData);
+
+alias PostDataFinished = fn UploadAction* (Request *mreq, void *cls, PostParseResult parsingResult);
+
+alias UpgradeHandler = fn void (void *cls, Request *req, UploadActionData *urh);
+
+fn Daemon *daemonCreate(HandlerFn handlerFn, void *cls) @cname("MHD_daemon_create");
+
+fn StatusCode daemonStart(Daemon *d) @cname("MHD_daemon_start");
+
+fn void daemonDestroy(Daemon *d) @cname("MHD_daemon_destroy");
+
+fn StatusCode daemonSetOptions(Daemon* d, DaemonOptionAndValue* options, usz optionsMaxNum)
+  @cname("MHD_daemon_set_options");
+
+fn Action *actionFromResponse(Request *mreq, Response *mres) @cname("MHD_action_from_response");
+
+fn Response *responseFromBuffer(HttpStatusCode sc, usz bufSize, char *buf, FreeCallback freeCb, void *freeCbCls)
+  @cname("MHD_response_from_buffer");
+
+fn Response *responseFromBufferCopy(HttpStatusCode sc, usz bufSize, char *buf)
+  @cname("MHD_response_from_buffer_copy");
+
+fn Response* responseFromEmpty() @cname("MHD_response_from_empty");
+
+fn mhd2::String *httpMethodToString(HttpMethod sc) @cname("MHD_http_method_to_string");
+
+fn StatusCode responseAddHeader(Response *mres, ZString name, ZString value) @cname("MHD_response_add_header");
+
+fn Response *responseFromFd(HttpStatusCode sc, int fd, ulong offset, ulong size) @cname("MHD_response_from_fd");
+
+fn Action* actionParsePost(Request *mreq, usz bufferSize, usz maxNonStreamSize,
+                                        PostEncoding enc, PostDataReader streamReader,
+                                        void* readerCls, PostDataFinished doneCb,
+                                        void* doneCbCls) @cname("MHD_action_parse_post");
+
+fn UploadAction* uploadActionContinue(Request *mreq) @cname("MHD_upload_action_continue");
+
+fn UploadAction* uploadActionFromResponse(
+    Request* mreq,
+    Response* response
+) @cname("MHD_upload_action_from_response");
+
+struct PostField
+{
+  mhd2::String name;
+  mhd2::StringNullable value;
+  mhd2::StringNullable filename;
+  mhd2::StringNullable contentType;
+  mhd2::StringNullable transferEncoding;
+}
+
+alias PostDataIterator = fn bool (void *cls, PostField *data);
+
+fn usz requestGetPostDataCb(Request *mreq, PostDataIterator iterator, void *iteratorCls) @cname("MHD_request_get_post_data_cb");
+
+macro Response *responseFromBufferStatic(HttpStatusCode sc, usz bufLen, char *buf)
+{
+  return responseFromBuffer(sc, bufLen, buf, null, null);
+}
+
+macro Action* actionAbortRequest(Request *mreq)
+{
+  return null;
+}

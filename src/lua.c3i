@@ -1,0 +1,143 @@
+module lua;
+
+import std::io;
+
+alias State = void;
+alias CFunction = fn int (State *l);
+
+const bool LUAI_IS32INT = (uint.max >> 30) >= 3;
+const int LUAI_MAXSTACK = LUAI_IS32INT ? 1000000 : 15000;
+const int LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
+
+enum ThreadStatus : const inline int
+{
+  OK = 0
+}
+
+enum Type : const inline int
+{
+  NUMBER = 3,
+  STRING = 4,
+  TABLE = 5,
+  FUNCTION = 6,
+}
+
+fn State *newState() @cname("luaL_newstate");
+fn void *openlibs(State *l) @cname("luaL_openlibs");
+fn ThreadStatus loadBufferX(State *l, char *bytecode, usz size, char *name, char *mode) @cname("luaL_loadbufferx");
+fn ThreadStatus pcallK(State *l, int nargs, int nresults, int errfunc, int ctx, void *k) @cname("lua_pcallk");
+fn Type getType(State *l, int idx) @cname("lua_type");
+fn void close(State *l) @cname("lua_close");
+fn ZString toLString(State *l, int idx, usz *len) @cname("lua_tolstring");
+fn void setTop(State *l, int idx) @cname("lua_settop");
+fn void requireF(State *l, ZString modname, void *openf, int glb) @cname("luaL_requiref");
+fn void openBase(State *l) @cname("luaopen_base");
+fn void openTable(State *l) @cname("luaopen_table");
+fn void openString(State *l) @cname("luaopen_string");
+fn void openMath(State *l) @cname("luaopen_math");
+fn void openUtf8(State *l) @cname("luaopen_utf8");
+fn void pushLString(State *l, char* buf, usz len) @cname("lua_pushlstring");
+fn void pushBool(State *l, bool b) @cname("lua_pushboolean");
+fn void pushInt(State *l, long b) @cname("lua_pushinteger");
+fn void pushNil(State *l) @cname("lua_pushnil");
+fn void pushValue(State *l, int idx) @cname("lua_pushvalue");
+fn void createTable(State *l, int narr, int nrec) @cname("lua_createtable");
+fn void setTable(State *l, int idx) @cname("lua_settable");
+fn int getTable(State *l, int idx) @cname("lua_gettable");
+fn void setField(State* l, int idx, ZString name) @cname("lua_setfield");
+fn long toIntegerX(State* l, int idx, int* isNum) @cname("lua_tointegerx");
+fn int getField(State* l, int idx, ZString name) @cname("lua_getfield");
+fn void rotate(State *l, int idx, int n) @cname("lua_rotate");
+fn ZString checkLString(State *l, int idx, usz *len) @cname("luaL_checklstring");
+fn int lError(State *l, ZString format, ZString name) @cname("luaL_error");
+fn int error(State *l) @cname("lua_error");
+fn void pushClosure(State *l, CFunction f, int idx) @cname("lua_pushcclosure");
+fn void setGlobal(State *l, ZString name) @cname("lua_setglobal");
+
+macro remove(State* l, int idx)
+{
+  rotate(l, idx, -1);
+  pop(l, 1);
+}
+
+macro ThreadStatus pcall(State *l, int nargs, int nresults, int errfunc)
+{
+  return pcallK(l, nargs, nresults, errfunc, 0, null);
+}
+
+macro bool isInteger(State *l, int idx)
+{
+  return getType(l, idx) == Type.NUMBER;
+}
+
+macro bool isString(State *l, int idx)
+{
+  return getType(l, idx) == Type.STRING;
+}
+
+macro bool isFunction(State* l, int idx)
+{
+  return getType(l, idx) == Type.FUNCTION;
+}
+
+macro bool isTable(State* l, int idx)
+{
+  return getType(l, idx) == Type.TABLE;
+}
+
+
+macro ZString toString(State *l, int idx)
+{
+  return toLString(l, idx, &&0);
+}
+
+macro void pop(State *l, int n)
+{
+  return setTop(l, -n - 1);
+}
+
+macro void pushAny(State *l, any v)
+{
+  switch(v.type)
+  {
+    case String.typeid:
+      String *str = anycast(v, String)!!;
+      pushLString(l, str.ptr, str.len);
+      break;
+    case bool.typeid:
+      bool* b = anycast(v, bool)!!;
+      pushBool(l, *b);
+      break;
+    default:
+      unreachable("Type is not handled");
+  }
+}
+
+macro void pushAll(State *l, args...)
+{
+  createTable(l, 0, args.len / 2);
+  for (usz i = 0; i < args.len; i += 2)
+  {
+    any k = args[i];
+    any v = args[i + 1];
+
+    assert(k.type == String.typeid, "Template key must be string");
+
+    pushAny(l, k);
+    pushAny(l, v);
+
+    setTable(l, -3);
+  }
+}
+
+macro String popError(State* l)
+{
+  if (!isString(l, -1)) {
+    pop(l, 1);
+    return "unknown lua error";
+  }
+
+  String msg = toString(l, -1).str_view();
+  pop(l, 1);
+  return msg;
+}

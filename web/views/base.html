@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+  <meta charset="UTF-8">
+  <title>Tierlister</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
+  >
+  <link rel="stylesheet" href="assets/styles.css" />
+  <body>
+    {% include("partials/nav.html") %}
+    {% yield("body") %}
+  </body>
+</html>

@@ -1,0 +1,5 @@
+module sqlite3;
+
+alias SQlite3 = void;
+
+fn int sqlite3_open(ZString filename, SQlite3 *db);
