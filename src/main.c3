@@ -34,18 +34,18 @@ fn void main()
 
   r.get("/", fn (Context *ctx) {
     ListModel[] lists = sqlite3::@query_all{ListModel}(db, "SELECT * FROM lists");
-    ctx.html(templates::render("index.html", "lists", lists));
+    ctx.html(templates::@render("index.html", "lists", lists));
   });
 
   r.get("/list/create", fn (Context *ctx) {
-    ctx.html(templates::render("list/create.html"));
+    ctx.html(templates::@render("list/create.html"));
   });
 
   r.post("/list/create", fn (Context *ctx) {
     String? title = ctx.req.formData["title"];
     if (catch title)
     {
-      ctx.html(templates::render("list/create.html", "err_title", "Title is required"));
+      ctx.html(templates::@render("list/create.html", "err_title", "Title is required"));
       return;
     }
 
