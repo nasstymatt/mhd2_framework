@@ -96,38 +96,49 @@ macro void pop(State *l, int n)
   return setTop(l, -n - 1);
 }
 
-macro void pushAny(State *l, any v)
+macro void @pushValue(State *l, #val)
 {
-  switch(v.type)
-  {
-    case String.typeid:
-      String *str = anycast(v, String)!!;
-      pushLString(l, str.ptr, str.len);
-      break;
-    case bool.typeid:
-      bool* b = anycast(v, bool)!!;
-      pushBool(l, *b);
-      break;
-    default:
-      unreachable("Type is not handled");
-  }
+    $switch $typeof(#val):
+      $case String:
+        pushLString(l, #val, #val.len);
+      $case bool:
+        pushBool(l, #val);
+    $endswitch
+
+    $switch $kindof(#val):
+      $case SIGNED_INT:
+      $case UNSIGNED_INT:
+        pushInt(l, #val);
+      $case SLICE:
+      $case ARRAY:
+        createTable(l, #val.len, 0);
+        for (usz i = 0; i < #val.len; i++)
+        {
+          pushInt(l, i + 1);
+          @pushValue(l, #val[i]);
+          setTable(l, -3);
+        }
+      $case STRUCT:
+        createTable(l, 0, $typeof(#val).membersof.len);
+        $foreach $m : $typeof(#val).membersof:
+          pushLString(l, $m.nameof, $m.nameof.len);
+          @pushValue(l, #val.$eval($m.nameof));
+          setTable(l, -3);
+        $endforeach
+    $endswitch
 }
 
-macro void pushAll(State *l, args...)
+macro void @pushAll(State *l, ...)
 {
-  createTable(l, 0, args.len / 2);
-  for (usz i = 0; i < args.len; i += 2)
-  {
-    any k = args[i];
-    any v = args[i + 1];
+  createTable(l, 0, $vacount / 2);
+  $for var $i = 0; $i < $vacount; $i += 2:
+    var $j = $i + 1;
+    $assert($typeof($vaarg[$i]) == String);
 
-    assert(k.type == String.typeid, "Template key must be string");
-
-    pushAny(l, k);
-    pushAny(l, v);
-
+    pushLString(l, $vaarg[$i], $vaarg[$i].len);
+    @pushValue(l, $vaarg[$j]);
     setTable(l, -3);
-  }
+  $endfor
 }
 
 macro String popError(State* l)

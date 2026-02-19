@@ -7,7 +7,15 @@
     <fieldset>
       <label>
         Title
-        <input name="title" placeholder="My list" />
+        <input
+          name="title"
+          placeholder="My List"
+          {% if err_title then %}
+          aria-invalid="true"
+          aria-labeled-by="err_title"
+          {% end %}
+        />
+      <small id="err_title">{{ err_title }}</small>
       </label>
     </fieldset>
 

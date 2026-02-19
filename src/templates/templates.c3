@@ -126,9 +126,9 @@ fn State* getLua() @private
 }
 
 <*
- @require args.len % 2 == 0 : "Args should be even to match key, value constraint"
+ @require $vacount % 2 == 0 : "Args should be even to match key, value constraint"
 *>
-fn String render(String path, args...)
+macro String render(String path, ...)
 {
   State* l = getLua();
   TemplateEntry te = findTemplate(path)!!;
@@ -137,7 +137,7 @@ fn String render(String path, args...)
 
   assert(pushTemplateFnCached(l, path, te), "Lua template load error: %s", lua::popError(l));
 
-  lua::pushAll(l, ...args); // push vars table
+  lua::@pushAll(l, $vasplat); // push vars table
   lua::pushNil(l); // No yields allowed in child template, push nil as a second argument
 
   assert(lua::pcall(l, 2, 1, 0) == lua::ThreadStatus.OK, "Lua render error: %s", lua::popError(l));
