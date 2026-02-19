@@ -1,0 +1,251 @@
+module db::sqlite3;
+
+alias SQlite3 = void;
+alias Statement = void;
+alias ExecCallback = fn int (void *data, int columns, ZString *values, ZString *names);
+const iptr TRANSIENT = -1;
+
+import std::io;
+
+enum OpenFlags : const inline int
+{
+  READONLY = 0x00000001,
+  READWRITE = 0x00000002,
+  CREATE = 0x00000004,
+  DELETEONCLOSE = 0x00000008,
+  EXCLUSIVE = 0x00000010,
+  AUTOPROXY = 0x00000020,
+  URI = 0x00000040,
+  MEMORY = 0x00000080,
+  MAIN_DB = 0x00000100,
+  TEMP_DB = 0x00000200,
+  TRANSIENT_DB = 0x00000400,
+  MAIN_JOURNAL = 0x00000800,
+  TEMP_JOURNAL = 0x00001000,
+  SUBJOURNAL = 0x00002000,
+  SUPER_JOURNAL = 0x00004000,
+  NOMUTEX = 0x00008000,
+  FULLMUTEX = 0x00010000,
+  SHAREDCACHE = 0x00020000,
+  PRIVATECACHE = 0x00040000,
+  WAL = 0x00080000,
+  NOFOLLOW = 0x01000000,
+  EXRESCODE = 0x02000000,
+  MASTER_JOURNAL = 0x00004000,
+}
+
+enum Result : const inline int
+{
+  OK = 0,
+  ERROR = 1,
+  INTERNAL = 2,
+  PERM = 3,
+  ABORT = 4,
+  BUSY = 5,
+  LOCKED = 6,
+  NOMEM = 7,
+  READONLY = 8,
+  INTERRUPT = 9,
+  IOERR = 10,
+  CORRUPT = 11,
+  NOTFOUND = 12,
+  FULL = 13,
+  CANTOPEN = 14,
+  PROTOCOL = 15,
+  EMPTY = 16,
+  SCHEMA = 17,
+  TOOBIG = 18,
+  CONSTRAINT = 19,
+  MISMATCH = 20,
+  MISUSE = 21,
+  NOLFS = 22,
+  AUTH = 23,
+  FORMAT = 24,
+  RANGE = 25,
+  NOTADB = 26,
+  NOTICE = 27,
+  WARNING = 28,
+  ROW = 100,
+  DONE = 101,
+}
+
+enum ColumnType : const inline int
+{
+  INTEGER = 1,
+  FLOAT = 2,
+  TEXT = 3,
+  BLOB = 4,
+  NULL = 5,
+}
+
+fn Result open_v2(ZString filename, SQlite3 **db, int flags, ZString zVfs) @cname("sqlite3_open_v2");
+fn Result busy_timeout(SQlite3 *db, int ms) @cname("sqlite3_busy_timeout");
+fn Result exec(SQlite3 *db, ZString sql, ExecCallback callback, void *data, ZString *errMsg) @cname("sqlite3_exec");
+fn Result prepare_v2(SQlite3 *db, ZString sql, int nByte, Statement **stmt, ZString *tail) @cname("sqlite3_prepare_v2");
+fn Result finalize(Statement *stmt) @cname("sqlite3_finalize");
+fn Result bind_text(Statement *stmt, int index, ZString value, int n, iptr destructor) @cname("sqlite3_bind_text");
+fn Result step(Statement *stmt) @cname("sqlite3_step");
+fn Result reset(Statement *stmt) @cname("sqlite3_reset");
+fn int column_count(Statement *stmt) @cname("sqlite3_column_count");
+fn int data_count(Statement *stmt) @cname("sqlite3_data_count");
+fn ZString column_name(Statement *stmt, int col) @cname("sqlite3_column_name");
+fn ColumnType column_type(Statement *stmt, int col) @cname("sqlite3_column_type");
+fn int column_int(Statement *stmt, int col) @cname("sqlite3_column_int");
+fn long column_int64(Statement *stmt, int col) @cname("sqlite3_column_int64");
+fn double column_double(Statement *stmt, int col) @cname("sqlite3_column_double");
+fn ZString column_text(Statement *stmt, int col) @cname("sqlite3_column_text");
+fn int column_bytes(Statement *stmt, int col) @cname("sqlite3_column_bytes");
+fn long last_insert_row_id(SQlite3 *db) @cname("sqlite3_last_insert_rowid");
+fn ZString errmsg(SQlite3 *db) @cname("sqlite3_errmsg");
+fn Result close(SQlite3 *db) @cname("sqlite3_close");
+fn void free(void *ptr) @cname("sqlite3_free");
+
+macro @transaction(SQlite3 *db; @body())
+{
+  assert(@exec_ok(db, "BEGIN IMMEDIATE;") == Result.OK, "DB error: %s", errmsg(db));
+  @body();
+  if (@exec_ok(db, "COMMIT;") != Result.OK)
+  {
+    @exec_ok(db, "ROLLBACK;");
+    unreachable("DB error: %s", errmsg(db));
+  }
+}
+
+macro Result @exec_ok(SQlite3 *db, ZString sql)
+{
+  return exec(db, sql, null, null, null);
+}
+
+macro @bind_all(Statement *stmt, ...)
+{
+  $for var $i = 0; $i < $vacount; $i++:
+    switch ($typeof($vaarg[$i]))
+    {
+      case String:
+        assert(
+            bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) == Result.OK,
+            "DB error: bind failed"
+        );
+        break;
+      default:
+        unreachable("DB error: bind for type %s is not implemented", $typeof($vaarg[$i]));
+    }
+  $endfor
+}
+
+macro long @insert(SQlite3 *db, ZString sql, ...)
+{
+  Statement *stmt;
+  assert(
+    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
+    "DB error: prepare statement error: %s", errmsg(db)
+  );
+  defer finalize(stmt);
+
+  @bind_all(stmt, $vasplat);
+
+  assert(step(stmt) == Result.DONE, "DB error: insert failed: %s", errmsg(db));
+
+  return sqlite3::last_insert_row_id(db);
+}
+
+macro void @assign_value_from_col(#target, Statement *stmt, int col) @local
+{
+  $switch :
+    $case $typeof(#target) == String:
+      assert(column_type(stmt, col) == TEXT, "DB error: expected TEXT for column '%s'", column_name(stmt, col));
+      #target = column_text(stmt, col).str_view().tcopy();
+    $case $typeof(#target) == bool:
+      assert(column_type(stmt, col) == INTEGER, "DB error: expected INTEGER for column '%s'", column_name(stmt, col));
+      #target = column_int(stmt, col) != 0;
+    $case $kindof(#target) == SIGNED_INT:
+      assert(column_type(stmt, col) == INTEGER, "DB error: expected INTEGER for column '%s'", column_name(stmt, col));
+      #target = ($typeof(#target))column_int64(stmt, col);
+    $case $kindof(#target) == UNSIGNED_INT:
+      assert(column_type(stmt, col) == INTEGER, "DB error: expected INTEGER for column '%s'", column_name(stmt, col));
+      long v = column_int64(stmt, col);
+      assert(v >= 0, "DB error: negative INTEGER for unsigned field '%s'", column_name(stmt, col));
+      #target = ($typeof(#target))v;
+    $case $kindof(#target) == FLOAT:
+      assert(column_type(stmt, col) == FLOAT || column_type(stmt, col) == INTEGER, "DB error: expected FLOAT/INTEGER for column '%s'", column_name(stmt, col));
+      #target = ($typeof(#target))column_double(stmt, col);
+    $default:
+      $error("DB error: query target type is not supported");
+  $endswitch
+}
+
+macro void @map_row_to_model(TModel *row, Statement *stmt, int cols) <TModel> @local
+{
+  for (int col = 0; col < cols; col++)
+  {
+    $foreach $m : TModel.membersof:
+      if ((ZString)$m.nameof == column_name(stmt, col))
+      {
+        @assign_value_from_col(row.$eval($m.nameof), stmt, col);
+      }
+    $endforeach
+  }
+}
+
+macro void @read_row(TModel *out, Statement *stmt) <TModel> @local
+{
+  int cols = column_count(stmt);
+  $switch :
+    $case TModel.kindof == STRUCT:
+      @map_row_to_model{TModel}(out, stmt, cols);
+    $default:
+      assert(cols >= 1, "DB error: query returned no columns");
+      @assign_value_from_col(*out, stmt, 0);
+  $endswitch
+}
+
+macro TModel[] @query_all(SQlite3 *db, ZString sql, ...) <TModel>
+{
+  Statement *stmt;
+  assert(
+    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
+    "DB error: prepare statement error: %s", errmsg(db)
+  );
+  defer finalize(stmt);
+
+  @bind_all(stmt, $vasplat);
+
+  usz row_count = 0;
+  Result rc;
+  for (rc = step(stmt); rc == ROW; rc = step(stmt)) row_count++;
+  assert(rc == DONE, "DB error: step failed: %s", errmsg(db));
+
+  assert(reset(stmt) == OK, "DB error: reset failed: %s", errmsg(db));
+
+  TModel[] rows = mem::temp_array(TModel, row_count);
+  for (rc = step(stmt), usz i = 0; rc == ROW; rc = step(stmt), i++)
+  {
+    @read_row{TModel}(&rows[i], stmt);
+  }
+  assert(rc == DONE, "DB error: step failed: %s", errmsg(db));
+
+  return rows;
+}
+
+macro TModel @query_one(SQlite3 *db, ZString sql, ...) <TModel>
+{
+  Statement *stmt;
+  assert(
+    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
+    "DB error: prepare statement error: %s", errmsg(db)
+  );
+  defer finalize(stmt);
+
+  @bind_all(stmt, $vasplat);
+
+  Result rc = step(stmt);
+  assert(rc == ROW, "DB error: expected one row, got none: %s", errmsg(db));
+
+  TModel row = {};
+  @read_row{TModel}(&row, stmt);
+
+  rc = step(stmt);
+  assert(rc == DONE, "DB error: expected one row, got more rows");
+
+  return row;
+}
