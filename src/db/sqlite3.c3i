@@ -7,6 +7,8 @@ const iptr TRANSIENT = -1;
 
 import std::io;
 
+faultdef NOT_FOUND;
+
 enum OpenFlags : const inline int
 {
   READONLY = 0x00000001,
@@ -149,6 +151,34 @@ macro long @insert(SQlite3 *db, ZString sql, ...)
   return sqlite3::last_insert_row_id(db);
 }
 
+macro void @update(SQlite3 *db, ZString sql, ...)
+{
+  Statement *stmt;
+  assert(
+    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
+    "DB error: prepare statement error: %s", errmsg(db)
+  );
+  defer finalize(stmt);
+
+  @bind_all(stmt, $vasplat);
+
+  assert(step(stmt) == Result.DONE, "DB error: update failed: %s", errmsg(db));
+}
+
+macro void @delete(SQlite3 *db, ZString sql, ...)
+{
+  Statement *stmt;
+  assert(
+    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
+    "DB error: prepare statement error: %s", errmsg(db)
+  );
+  defer finalize(stmt);
+
+  @bind_all(stmt, $vasplat);
+
+  assert(step(stmt) == Result.DONE, "DB error: delete failed: %s", errmsg(db));
+}
+
 macro void @assign_value_from_col(#target, Statement *stmt, int col) @local
 {
   $switch :
@@ -227,7 +257,7 @@ macro TModel[] @query_all(SQlite3 *db, ZString sql, ...) <TModel>
   return rows;
 }
 
-macro TModel @query_one(SQlite3 *db, ZString sql, ...) <TModel>
+macro TModel? @query_one(SQlite3 *db, ZString sql, ...) <TModel>
 {
   Statement *stmt;
   assert(
@@ -239,7 +269,7 @@ macro TModel @query_one(SQlite3 *db, ZString sql, ...) <TModel>
   @bind_all(stmt, $vasplat);
 
   Result rc = step(stmt);
-  assert(rc == ROW, "DB error: expected one row, got none: %s", errmsg(db));
+  if (rc != ROW) return NOT_FOUND~;
 
   TModel row = {};
   @read_row{TModel}(&row, stmt);
