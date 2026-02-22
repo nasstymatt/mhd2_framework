@@ -1,0 +1,16 @@
+<fieldset>
+  <label>
+    Title
+    <input
+      name="title"
+      placeholder="My List"
+      aria-invalid="{{ err_title and 'true' }}"
+      aria-labeled-by="{{ err_title and 'err_title' }}"
+      value="{{ list and list.title }}"
+      required
+      />
+    {% if err_title then %}
+      <small id="err_title">{{ err_title }}</small>
+    {% end %}
+  </label>
+</fieldset>

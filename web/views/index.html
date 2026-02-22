@@ -2,10 +2,36 @@
 
 {% block("body") %}
 <main class="container">
-  <h1>My Lists!!</h1>
-  {% for i, v in ipairs(lists) do %}
-    {{ i }}. {{ v.title }} | {{ v.created_at }}
-    <br/>
-  {% end %}
+  <h1>My Lists</h1>
+
+  <table>
+    <thead>
+      <tr>
+        <th scope="col">Title</th>
+        <th scope="col">Created</th>
+        <th scope="col">Actions</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for _, list in ipairs(lists) do %}
+        <tr id="list-{{ list.id }}">
+          <th scope="row">
+            <a href="/list/{{ list.id }}">{{ list.title }}</a>
+          </th>
+          <td>{{ list.created_at }}</td>
+          <td>
+            <a hx-delete="/list/{{ list.id }}"
+               hx-target="#list-{{ list.id }}"
+               hx-swap="delete"
+               hx-confirm="Delete list {{ list.title }}?"
+               >
+              Delete
+            </a>
+          </td>
+        </tr>
+      {% end %}
+    </tbody>
+  </table>
 </main>
 {% endblock() %}

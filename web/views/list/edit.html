@@ -1,0 +1,13 @@
+{% extends("base.html") %}
+
+{% block("body") %}
+<main class="container">
+  <h1>{{ list.title }} - <small>{{ list.created_at }}</small></h1>
+
+  <h2 id="edit-list-form-title">Edit list</h2>
+  <form aria-labelledby="edit-list-form-title" hx-put>
+    {% include("partials/list-edit-fieldset.html", {list = list}) %}
+    <input type="submit" value="Save" />
+  </form>
+</main>
+{% endblock() %}

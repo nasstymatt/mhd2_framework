@@ -3,22 +3,9 @@
 {% block("body") %}
 <main class="container">
   <h1 id="create-list-title">Create List</h1>
-  <form aria-labelledby="create-list-title" method="post">
-    <fieldset>
-      <label>
-        Title
-        <input
-          name="title"
-          placeholder="My List"
-          {% if err_title then %}
-          aria-invalid="true"
-          aria-labeled-by="err_title"
-          {% end %}
-        />
-      <small id="err_title">{{ err_title }}</small>
-      </label>
-    </fieldset>
 
+  <form aria-labelledby="create-list-title" method="post">
+    {% include("partials/list-edit-fieldset.html") %}
     <input type="submit" value="Create" />
   </form>
 </main>
