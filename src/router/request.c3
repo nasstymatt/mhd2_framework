@@ -7,4 +7,5 @@ struct Request
   HttpMethod method;
   String path;
   HashMap{String, String} formData;
+  HashMap{String, String} params;
 }

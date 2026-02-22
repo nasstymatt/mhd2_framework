@@ -67,7 +67,7 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
     rs.req = req;
     rs.res = res;
 
-    if (uploadSize > 0 && method == POST)
+    if (uploadSize > 0 && (method == POST || method == PUT))
     {
       if (uploadSize > MAX_NON_STREAM_SIZE) return mhd2::actionAbortRequest(mreq);
       return mhd2::actionParsePost(mreq, MAX_NON_STREAM_SIZE, MAX_NON_STREAM_SIZE, PostEncoding.OTHER, null, null, &postDataFinished, rs);
