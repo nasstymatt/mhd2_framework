@@ -1,0 +1,43 @@
+{% extends("base.html") %}
+
+{% block("body") %}
+<main class="container">
+  <h1>Cards</h1>
+
+  <section>
+    <h3>Upload card</h3>
+    <form hx-encoding="multipart/form-data"
+          hx-post
+          hx-target="#cards-list"
+          hx-swap="afterbegin"
+          x-data="{ processing: false }"
+          @htmx:before-request="processing=true"
+          @htmx:after-request="processing=false"
+          >
+
+      <fieldset :disabled="processing">
+        <label>
+          Card image
+          <input type="file"
+                 name="image"
+                 accept="image/png, image/jpeg"
+                 required
+          />
+        </label>
+      </fieldset>
+
+      <button type="submit"
+              x-text="processing ? 'Uploading...' : 'Upload'"
+              :aria-busy="processing"
+      >
+        Upload
+      </button>
+    </form>
+  </section>
+
+  <section>
+    <h3>All cards</h3>
+    {% include("partials/cards-list.html") %}
+  </section>
+</main>
+{% endblock() %}

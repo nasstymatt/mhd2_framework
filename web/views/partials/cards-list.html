@@ -1,0 +1,11 @@
+{%
+local function card_url(image_path)
+  return image_path:gsub("^data/cards/", "/uploads/cards/", 1)
+end
+%}
+
+<div id="cards-list" class="grid">
+{% for _, card in ipairs(cards) do %}
+  {% include("partials/card.html", { card = card }) %}
+{% end %}
+</div>

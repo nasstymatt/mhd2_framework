@@ -6,8 +6,11 @@
 
   <h2 id="edit-list-form-title">Edit list</h2>
   <form aria-labelledby="edit-list-form-title" hx-put>
-    {% include("partials/list-edit-fieldset.html", {list = list}) %}
+    {% include("partials/list-edit-fieldset.html") %}
     <input type="submit" value="Save" />
   </form>
+  <button class="danger" style="width:100%" hx-delete hx-confirm="Delete list {{ list.title }}?">
+    Delete
+  </button>
 </main>
 {% endblock() %}

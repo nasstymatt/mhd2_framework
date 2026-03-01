@@ -17,11 +17,11 @@
       {% for _, list in ipairs(lists) do %}
         <tr id="list-{{ list.id }}">
           <th scope="row">
-            <a href="/list/{{ list.id }}">{{ list.title }}</a>
+            <a href="/lists/{{ list.id }}">{{ list.title }}</a>
           </th>
           <td>{{ list.created_at }}</td>
           <td>
-            <a hx-delete="/list/{{ list.id }}"
+            <a hx-delete="/lists/{{ list.id }}"
                hx-target="#list-{{ list.id }}"
                hx-swap="delete"
                hx-confirm="Delete list {{ list.title }}?"

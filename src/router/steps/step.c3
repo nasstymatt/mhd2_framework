@@ -104,6 +104,7 @@ fn void MountStaticFolderStep.handle(&self, Context *ctx) @dynamic
 
         ctx.res.file.fd = fd;
         ctx.res.bodyKind = FILEFD;
+        ctx.res.file.offset = 0;
         ctx.res.file.size = path::file_size(p)!!;
         return;
       }

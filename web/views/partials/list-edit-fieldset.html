@@ -4,9 +4,9 @@
     <input
       name="title"
       placeholder="My List"
-      aria-invalid="{{ err_title and 'true' }}"
-      aria-labeled-by="{{ err_title and 'err_title' }}"
-      value="{{ list and list.title }}"
+      aria-invalid="{{ err_title and 'true' or '' }}"
+      aria-labeled-by="{{ err_title and 'err_title' or '' }}"
+      value="{{ list and list.title or '' }}"
       required
       />
     {% if err_title then %}

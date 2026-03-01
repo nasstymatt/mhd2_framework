@@ -85,6 +85,9 @@ fn Result busy_timeout(SQlite3 *db, int ms) @cname("sqlite3_busy_timeout");
 fn Result exec(SQlite3 *db, ZString sql, ExecCallback callback, void *data, ZString *errMsg) @cname("sqlite3_exec");
 fn Result prepare_v2(SQlite3 *db, ZString sql, int nByte, Statement **stmt, ZString *tail) @cname("sqlite3_prepare_v2");
 fn Result finalize(Statement *stmt) @cname("sqlite3_finalize");
+fn Result bind_double(Statement *stmt, int index, double value) @cname("sqlite3_bind_double");
+fn Result bind_int(Statement *stmt, int index, int value) @cname("sqlite3_bind_int");
+fn Result bind_int64(Statement *stmt, int index, long value) @cname("sqlite3_bind_int64");
 fn Result bind_text(Statement *stmt, int index, ZString value, int n, iptr destructor) @cname("sqlite3_bind_text");
 fn Result step(Statement *stmt) @cname("sqlite3_step");
 fn Result reset(Statement *stmt) @cname("sqlite3_reset");
@@ -113,6 +116,13 @@ macro @transaction(SQlite3 *db; @body())
   }
 }
 
+macro Result @exec(SQlite3 *db, ZString sql)
+{
+  Result r = exec(db, sql, null, null, null);
+  assert(r == Result.OK, "DB error: %s", errmsg(db));
+  return r;
+}
+
 macro Result @exec_ok(SQlite3 *db, ZString sql)
 {
   return exec(db, sql, null, null, null);
@@ -121,17 +131,31 @@ macro Result @exec_ok(SQlite3 *db, ZString sql)
 macro @bind_all(Statement *stmt, ...)
 {
   $for var $i = 0; $i < $vacount; $i++:
-    switch ($typeof($vaarg[$i]))
-    {
-      case String:
+    $switch ($typeof($vaarg[$i])):
+      $case String:
         assert(
             bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) == Result.OK,
             "DB error: bind failed"
         );
-        break;
-      default:
+      $case long:
+        assert(
+            bind_int64(stmt, $i + 1, $vaarg[$i]) == Result.OK,
+            "DB error: bind failed"
+        );
+      $case int:
+        assert(
+            bind_int(stmt, $i + 1, $vaarg[$i]) == Result.OK,
+            "DB error: bind failed"
+        );
+      $case double:
+      $case float:
+        assert(
+            bind_double(stmt, $i + 1, (double)$vaarg[$i]) == Result.OK,
+            "DB error: bind failed"
+        );
+      $default:
         unreachable("DB error: bind for type %s is not implemented", $typeof($vaarg[$i]));
-    }
+    $endswitch
   $endfor
 }
 

@@ -51,10 +51,11 @@ enum DaemonOption : const CInt
 
 enum WorkMode : const CInt
 {
-  WORKER_THREADS = 24
+  WORKER_THREADS = 24,
+  THREAD_PER_CONNECTION = 32
 }
 
-enum PostParseResult : const int
+enum PostParseResult : const CInt
 {
   OK = 0,
   REQUEST_EMPTY = 1,
@@ -105,6 +106,13 @@ struct StringNullable
   ZString cstr;
 }
 
+macro String StringNullable.str_view(&self)
+{
+  if (self.len == 0 || self.cstr == null) return "";
+
+  return self.cstr.str_view();
+}
+
 struct WorkModeWithParam
 {
   WorkMode mode;
@@ -140,26 +148,51 @@ struct DaemonOptionAndValue
 
 alias UpgradedHandle = void;
 
+enum ValueKind : const CUInt
+{
+  HEADER = 1 << 0,
+  COOKIE = 1 << 1,
+  URI_QUERY_PARAM = 1 << 2,
+  POSTDATA = 1 << 3,
+  TRAILER = 1 << 4,
+  HEADER_TRAILER = ValueKind.HEADER | ValueKind.TRAILER,
+  URI_QUERY_POST = ValueKind.POSTDATA | ValueKind.URI_QUERY_PARAM,
+}
+
+struct NameAndValue
+{
+  mhd2::String name;
+  mhd2::StringNullable value;
+}
+
+alias NameValueIterator = fn bool (void *cls, ValueKind kind, mhd2::NameAndValue *nv);
+
+fn usz requestGetValuesCb(Request *request, ValueKind kind, NameValueIterator iterator, void *iteratorCls)
+  @cname("MHD_request_get_values_cb");
+
+fn bool requestGetValue(Request *request, ValueKind kind, ZString key, StringNullable *valueOut)
+  @cname("MHD_request_get_value");
+
 alias HandlerFn = fn Action* (void *cls, Request *mreq, mhd2::String *path, HttpMethod method, ulong uploadSize);
 
 alias FreeCallback = fn void (void *cls);
 
-alias PostDataReader = fn UploadAction* (void *cls,
-                                               Request *req,
+alias PostDataReader = fn UploadAction* (Request *req,
+                                         void *cls,
                                          mhd2::String *name,
-                       mhd2::String *filename,
-                       mhd2::StringNullable *contentType,
-                       mhd2::StringNullable *encoding,
-                       usz size,
-                       void *data,
-                       ulong off,
-                       bool finalData);
+                                         mhd2::StringNullable *filename,
+                                         mhd2::StringNullable *contentType,
+                                         mhd2::StringNullable *encoding,
+                                         usz size,
+                                         void *data,
+                                         ulong off,
+                                         CInt finalData);
 
 alias PostDataFinished = fn UploadAction* (Request *mreq, void *cls, PostParseResult parsingResult);
 
 alias UpgradeHandler = fn void (void *cls, Request *req, UploadActionData *urh);
 
-fn Daemon *daemonCreate(HandlerFn handlerFn, void *cls) @cname("MHD_daemon_create");
+fn Daemon* daemonCreate(HandlerFn handlerFn, void *cls) @cname("MHD_daemon_create");
 
 fn StatusCode daemonStart(Daemon *d) @cname("MHD_daemon_start");
 
@@ -217,4 +250,14 @@ macro Response *responseFromBufferStatic(HttpStatusCode sc, usz bufLen, char *bu
 macro Action* actionAbortRequest(Request *mreq)
 {
   return null;
+}
+
+macro @to_mhd_string(String $str)
+{
+  return (StringNullable) { $str.len, $str };
+}
+
+macro @to_mhd_string_nullable(String $str)
+{
+  return (StringNullable) { $str.len, $str };
 }

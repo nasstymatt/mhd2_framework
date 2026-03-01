@@ -6,6 +6,8 @@ import db::sqlite3;
 import db::models;
 
 import std::io;
+import libc;
+
 
 SQlite3 *db;
 
@@ -14,56 +16,57 @@ fn void main()
   Router r = router::new();
   defer r.free();
 
+
   r.get("/", fn (Context *ctx)
   {
-    ListModel[] lists = sqlite3::@query_all{ListModel}(db, "SELECT * FROM lists");
-    int id = lists.len;
+    models::List[] lists = sqlite3::@query_all{models::List}(db, "SELECT * FROM lists");
     ctx.@render("index.html", "lists", lists);
   });
 
-  r.get("/list/create", fn (Context *ctx)
+
+  r.get("/lists/create", fn (Context *ctx)
   {
-    ctx.@render("list/create.html");
+    ctx.@render("lists/create.html");
   });
 
-  r.post("/list/create", fn (Context *ctx)
+  r.post("/lists/create", fn (Context *ctx)
   {
     String title = ctx.@form("title") ?? "";
     if (title.trim() == "")
     {
-      return ctx.@render("list/create.html", "err_title", "Title is required");
+      return ctx.@render("lists/create.html", "err_title", "Title is required");
     }
     long id = sqlite3::@insert(db, "INSERT INTO lists(title) VALUES(?1)", title);
 
-    ctx.@redirect("/list/:id", id);
+    ctx.@redirect("/lists/:id", id);
   });
 
 
-  r.get("/list/:id", fn (Context *ctx)
+  r.get("/lists/:id", fn (Context *ctx)
   {
     String? id = ctx.req.params["id"];
     if (catch id) return ctx.@not_found();
 
-    ListModel? list = sqlite3::@query_one{ListModel}(db, "SELECT * FROM lists WHERE id = ?1", id);
+    models::List? list = sqlite3::@query_one{models::List}(db, "SELECT * FROM lists WHERE id = ?1", id);
     if (catch list) return ctx.@not_found();
 
-    ctx.@render("list/edit.html", "list", list);
+    ctx.@render("lists/edit.html", "list", list);
   });
 
-  r.put("/list/:id", fn (Context *ctx)
+  r.put("/lists/:id", fn (Context *ctx)
   {
     String? id = ctx.req.params["id"];
     if (catch id) return ctx.@not_found();
 
     String title = ctx.@form("title") ?? "";
-    if (title.trim() == "") return ctx.@error("Title is required");
+    if (title.trim() == "") return ctx.@error(400, "Title is required");
 
     sqlite3::@update(db, "UPDATE lists SET title = ?1 WHERE id = ?2", title, id);
 
     ctx.res.headers.push({"HX-Refresh", "true"});
   });
 
-  r.delete("/list/:id", fn (Context *ctx)
+  r.delete("/lists/:id", fn (Context *ctx)
   {
     String? id = ctx.req.params["id"];
     if (catch id) return ctx.@not_found();
@@ -71,6 +74,42 @@ fn void main()
     sqlite3::@delete(db, "DELETE FROM lists WHERE id = ?1", id);
   });
 
+
+  r.get("/cards", fn (Context *ctx)
+  {
+    models::Card[] cards = sqlite3::@query_all{models::Card}(db, "SELECT * FROM cards");
+    // if (try ctx.req.headers["HX-Request"])
+    // {
+    //   io::printn("HX req!");
+    //   return;
+    // }
+
+    ctx.@render("cards.html", "cards", cards);
+  });
+
+  r.post("/cards", fn (Context *ctx)
+  {
+    FileUpload? image = ctx.req.files["image"];
+    if (catch image) return ctx.@error(400);
+
+    String outPath = string::join(tmem, {image.path, image.fileName}, "_");
+    if (libc::rename(image.path.zstr_tcopy(), outPath.zstr_tcopy()) != 0)
+    {
+      io::eprintfn("Unable to rename file %s, errno = %d", image.path, libc::errno());
+      return ctx.@error(500);
+    }
+
+    long id = sqlite3::@insert(db, "INSERT INTO cards(image_path, original_filename) VALUES(?1, ?2)", outPath, image.fileName);
+    models::Card card = sqlite3::@query_one{models::Card}(db, "SELECT * FROM cards WHERE id = ?1", id)!!;
+
+    ctx.@status(201);
+    if (try ctx.req.headers["HX-Request"])
+    {
+      ctx.@render("partials/card.html", "card", card);
+    }
+  });
+
+  r.handleStatic("data/cards", "/uploads/cards");
   r.handleStatic("web/assets", "/assets");
 
   router::mhd2::listenAndServe(8080, &r);
@@ -89,10 +128,9 @@ fn void initDb() @init
                 "PRAGMA foreign_keys=ON;"
                 "PRAGMA temp_store=MEMORY;");
 
-  ZString schemaSql = $embed("../sql/schema.sql");
   sqlite3::@transaction(db)
   {
-    sqlite3::@exec_ok(db, schemaSql);
+    sqlite3::@exec(db, $embed("../sql/schema.sql"));
   };
 }
 

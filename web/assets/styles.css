@@ -1,0 +1,19 @@
+:root {
+  --color-danger: var(--pico-color-red-550);
+  --color-danger-hover: var(--pico-color-red-500);
+  --color-danger-focus: var(--pico-color-red-700);
+}
+
+button.danger,
+[role="button"].danger,
+input[type="submit"].danger {
+  --pico-primary-background: var(--color-danger);
+  --pico-primary-border: var(--color-danger);
+
+  --pico-primary-hover-background: var(--color-danger-hover);
+  --pico-primary-hover-border: var(--color-danger-hover);
+
+  --pico-primary-focus: var(--color-danger-focus);
+
+  --pico-primary-inverse: #fff;
+}

@@ -2,7 +2,6 @@ module router;
 
 import templates;
 
-import std::io;
 import std::core::string;
 
 struct Header
@@ -28,7 +27,7 @@ fn void Context.next(&self)
     return;
   }
 
-  self.res.statusCode = 404;
+  self.@not_found();
 }
 
 macro void Context.@text(&self, String #text)
@@ -47,7 +46,7 @@ macro void Context.@html(&self, String #html)
 
 macro void Context.@not_found(&self)
 {
-  self.res.statusCode = 404;
+  self.@status(404);
 }
 
 macro void Context.@redirect(&self, String location, ..., int sc = 303)
@@ -64,22 +63,32 @@ macro void Context.@redirect(&self, String location, ..., int sc = 303)
         if (paramCount - 1 == $i)
         {
           *seg = string::tformat("%s", $vaarg[$i]);
-          io::printn(*seg);
         }
       $endfor
     }
   }
 
-  assert(paramCount == $vacount);
+  assert(paramCount == $vacount, "redirect path has %d param(s) but %d argument(s) were provided", paramCount, $vacount);
 
-  self.res.statusCode = sc;
+  self.@status(sc);
   self.res.headers.push({"Location", string::join(tmem, pathSegments, "/")});
 }
 
-macro Context.@error(&self, String text = "", int sc = 400)
+<*
+ @require sc >= 100 && sc < 600 : "Not a http status code"
+*>
+macro Context.@status(&self, int sc = 200)
+{
+  self.res.statusCode = sc;
+}
+
+<*
+ @require sc >= 400 && sc < 600 : "Not a http error status code"
+*>
+macro Context.@error(&self, int sc = 500, String text = "")
 {
   self.@text(text);
-  self.res.statusCode = sc;
+  self.@status(sc);
 }
 
 macro Context.@form(&self, String key, $DataType = String)
@@ -93,4 +102,9 @@ macro Context.@form(&self, String key, $DataType = String)
 macro void Context.@render(&self, String path, ...)
 {
   self.@html(templates::@render(path, $vasplat));
+}
+
+macro FileUpload[] Context.@files(&self, String key)
+{
+  return self.req.files[key];
 }

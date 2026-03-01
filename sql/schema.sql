@@ -2,4 +2,11 @@ CREATE TABLE IF NOT EXISTS lists (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT NOT NULL,
   created_at TIMESTAMP NOT NULL DEFAULT (datetime('now'))
-)
+);
+
+CREATE TABLE IF NOT EXISTS cards (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  image_path TEXT UNIQUE NOT NULL,
+  original_filename TEXT NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT (datetime('now'))
+);
