@@ -1,0 +1,16 @@
+{% extends("base.html") %}
+
+{% block("body") %}
+<main class="container">
+  <h1>{{ tierlist.title }} - <small>{{ tierlist.created_at }}</small></h1>
+
+  <h2 id="edit-tierlist-form-title">Edit tierlist</h2>
+  <form aria-labelledby="edit-tierlist-form-title" hx-put>
+    {% include("partials/tierlist-edit-fieldset.html") %}
+    <input type="submit" value="Save" />
+  </form>
+  <button class="danger" style="width:100%" hx-delete hx-confirm="Delete tierlist {{ tierlist.title }}?">
+    Delete
+  </button>
+</main>
+{% endblock() %}

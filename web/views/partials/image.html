@@ -1,0 +1,10 @@
+{%
+local function image_url(image_path)
+  return image_path:gsub("^data/images/", "/uploads/images/", 1)
+end
+%}
+
+<figure>
+  <img src="{{ image_url(image.image_path) }}" alt="{{ image.original_filename }}" />
+  <figcaption>{{ image.original_filename }}</figcaption>
+</figure>

@@ -50,15 +50,10 @@ end
 		local expr_open = src:find("{{", cursor, true)
 
 		local match_pos, match_kind
-		if dir_open and expr_open then
-			if dir_open < expr_open then
-				match_pos, match_kind = dir_open, "dir"
-			else
-				match_pos, match_kind = expr_open, "expr"
-			end
-		else
-			match_pos = dir_open or expr_open
-			match_kind = dir_open and "dir" or expr_open and "expr" or nil
+		if (dir_open or math.huge) < (expr_open or math.huge) then
+			match_pos, match_kind = dir_open, "dir"
+		elseif expr_open then
+			match_pos, match_kind = expr_open, "expr"
 		end
 
 		if not match_pos then

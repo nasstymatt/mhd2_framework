@@ -120,7 +120,7 @@ fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
   // File upload
   if (off == 0)
   {
-    char[*] mkpath = "data/cards/card-XXXXXX\0";
+    char[*] mkpath = "data/tmp/file-XXXXXX\0";
     Fd fd = mkstemp(&mkpath[0]);
     if (fd == -1) return mhd2::uploadActionContinue(mreq);
 

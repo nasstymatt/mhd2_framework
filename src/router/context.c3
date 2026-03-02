@@ -49,7 +49,7 @@ macro void Context.@not_found(&self)
   self.@status(404);
 }
 
-macro void Context.@redirect(&self, String location, ..., int sc = 303)
+macro Context.@redirect(&self, String location, ..., int sc = 303)
 {
   String[] pathSegments = location.tsplit("/");
 
@@ -91,20 +91,7 @@ macro Context.@error(&self, int sc = 500, String text = "")
   self.@status(sc);
 }
 
-macro Context.@form(&self, String key, $DataType = String)
-{
-  // FIXME: Add a real conversion to desired type,
-  // use this cast only as a fallback or throw
-  // a compile-time error
-  return self.req.formData[key];
-}
-
 macro void Context.@render(&self, String path, ...)
 {
   self.@html(templates::@render(path, $vasplat));
-}
-
-macro FileUpload[] Context.@files(&self, String key)
-{
-  return self.req.files[key];
 }

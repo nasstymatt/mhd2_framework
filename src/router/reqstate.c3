@@ -28,7 +28,7 @@ fn void ReqState.init(&self)
   self.req.headers.init(&self.mem);
   self.req.formData.init(&self.mem);
   self.req.files.init(&self.mem);
-  // self.req.params.init(&self.mem);
+  self.req.params.init(&self.mem);
 }
 
 fn void ReqState.free(&self)

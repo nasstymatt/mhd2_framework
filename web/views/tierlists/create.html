@@ -1,0 +1,12 @@
+{% extends("base.html") %}
+
+{% block("body") %}
+<main class="container">
+  <h1 id="create-tierlist-title">Create Tierist</h1>
+
+  <form aria-labelledby="create-tierlist-title" method="post">
+    {% include("partials/tierlist-edit-fieldset.html") %}
+    <input type="submit" value="Create" />
+  </form>
+</main>
+{% endblock() %}

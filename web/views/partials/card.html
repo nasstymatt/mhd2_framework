@@ -1,7 +1,0 @@
-{%
-local function card_url(image_path)
-  return image_path:gsub("^data/cards/", "/uploads/cards/", 1)
-end
-%}
-
-<img src="{{ card_url(card.image_path) }}" alt="{{ card.original_filename }}" />

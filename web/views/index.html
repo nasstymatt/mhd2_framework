@@ -2,7 +2,7 @@
 
 {% block("body") %}
 <main class="container">
-  <h1>My Lists</h1>
+  <h1>My Tierlists</h1>
 
   <table>
     <thead>
@@ -14,17 +14,17 @@
     </thead>
 
     <tbody>
-      {% for _, list in ipairs(lists) do %}
-        <tr id="list-{{ list.id }}">
+      {% for _, tierlist in ipairs(tierlists) do %}
+        <tr id="tierlist-{{ tierlist.id }}">
           <th scope="row">
-            <a href="/lists/{{ list.id }}">{{ list.title }}</a>
+            <a href="/tierlists/{{ tierlist.id }}">{{ tierlist.title }}</a>
           </th>
-          <td>{{ list.created_at }}</td>
+          <td>{{ tierlist.created_at }}</td>
           <td>
-            <a hx-delete="/lists/{{ list.id }}"
-               hx-target="#list-{{ list.id }}"
+            <a hx-delete="/tierlists/{{ tierlist.id }}"
+               hx-target="#tierlist-{{ tierlist.id }}"
                hx-swap="delete"
-               hx-confirm="Delete list {{ list.title }}?"
+               hx-confirm="Delete tierlist {{ tierlist.title }}?"
                >
               Delete
             </a>

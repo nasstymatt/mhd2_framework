@@ -1,13 +1,22 @@
 module db::models;
 
-struct List
+struct TierList
 {
   long id;
   String title;
   String created_at;
 }
 
-struct Card
+struct Tier
+{
+  long id;
+  String title;
+  String color;
+  long tierlist_id;
+  double position;
+}
+
+struct Image
 {
   long id;
   String image_path;

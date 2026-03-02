@@ -27,3 +27,8 @@ struct Response
     ResponseFileFD file;
   }
 }
+
+macro Response.@header(&self, #key, #value)
+{
+  self.headers.push({ #key, #value });
+}

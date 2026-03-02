@@ -19,3 +19,8 @@ struct Request
   HashMap{String, String} formData;
   HashMap{String, FileUpload} files;
 }
+
+macro Request.@header(&self, #key)
+{
+  return self.headers[#key];
+}

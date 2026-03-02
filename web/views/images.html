@@ -2,22 +2,21 @@
 
 {% block("body") %}
 <main class="container">
-  <h1>Cards</h1>
+  <h1>Images</h1>
 
   <section>
-    <h3>Upload card</h3>
     <form hx-encoding="multipart/form-data"
           hx-post
-          hx-target="#cards-list"
+          hx-target="#images-list"
           hx-swap="afterbegin"
           x-data="{ processing: false }"
           @htmx:before-request="processing=true"
-          @htmx:after-request="processing=false"
+          @htmx:after-request="processing=false;$el.reset()"
           >
 
       <fieldset :disabled="processing">
         <label>
-          Card image
+          Upload Image
           <input type="file"
                  name="image"
                  accept="image/png, image/jpeg"
@@ -36,8 +35,8 @@
   </section>
 
   <section>
-    <h3>All cards</h3>
-    {% include("partials/cards-list.html") %}
+    <h3>All images</h3>
+    {% include("partials/images-list.html") %}
   </section>
 </main>
 {% endblock() %}
