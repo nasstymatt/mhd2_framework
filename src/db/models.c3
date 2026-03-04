@@ -23,3 +23,11 @@ struct Image
   String original_filename;
   String created_at;
 }
+
+struct TierImage
+{
+  long tierlist_id;
+  long tier_id;
+  long image_id;
+  float position;
+}

@@ -48,10 +48,34 @@ fn void main()
     String? id = ctx.req.params["id"];
     if (catch id) return ctx.@not_found();
 
+    // TODO: refactor
     models::TierList? tierlist = sqlite3::@query_one{models::TierList}(db, "SELECT * FROM tierlists WHERE id = ?1", id);
     if (catch tierlist) return ctx.@not_found();
+    models::Tier[]? tiers = sqlite3::@query_all{models::Tier}(db, "SELECT * FROM tiers WHERE tierlist_id = ?1", tierlist.id);
+    if (catch tiers) return ctx.@not_found();
+    models::TierImage[]? tierImages =
+      sqlite3::@query_all{models::TierImage}(db, "SELECT * FROM tier_images WHERE tierlist_id = ?1 ORDER BY tier_id, position", tierlist.id
+      );
+    if (catch tierImages) return ctx.@not_found();
+    models::Image[]? allImages = sqlite3::@query_all{models::Image}(db,
+                                                                    "SELECT * FROM images",
+    );
+    if (catch allImages) return ctx.@not_found();
 
-    ctx.@render("tierlists/edit.html", "tierlist", tierlist);
+    // Only unplaced images — for the "All images" section
+    models::Image[]? images = sqlite3::@query_all{models::Image}(db,
+                                                                 "SELECT * FROM images WHERE id NOT IN (SELECT image_id FROM tier_images WHERE tierlist_id = ?1) ORDER BY created_at DESC",
+                                                                 tierlist.id
+    );
+    if (catch images) return ctx.@not_found();
+
+    ctx.@render("tierlists/edit.html",
+                "tierlist",   tierlist,
+                "tiers",      tiers,
+                "images",     images,
+                "tierImages", tierImages,
+                "allImages",  allImages
+    );
   });
 
   r.put("/tierlists/:id", fn (Context *ctx)
@@ -65,6 +89,56 @@ fn void main()
     sqlite3::@update(db, "UPDATE tierlists SET title = ?1 WHERE id = ?2", title, id);
 
     ctx.res.headers.push({"HX-Refresh", "true"});
+  });
+
+  r.put("/tierlists/:id/images/:image_id", fn (Context *ctx) {
+    String? id         = ctx.req.params["id"];
+    if (catch id) return ctx.@not_found();
+    String? imageId    = ctx.req.params["image_id"];
+    if (catch imageId) return ctx.@not_found();
+    String? tierId     = ctx.req.formData["tier_id"];
+    if (catch tierId) return ctx.@error(400);
+    String? posStr     = ctx.req.formData["position"];
+    if (catch posStr) return ctx.@error(400);
+
+    int rank = posStr.to_int()!! + 1; // 1-based index from Alpine
+
+    // Fetch existing positions in the destination tier, excluding this image
+    double[]? positions = sqlite3::@query_all{double}(db,
+                                                      "SELECT position FROM tier_images WHERE tierlist_id=?1 AND tier_id=?2 AND image_id!=?3 ORDER BY position",
+                                                      id, tierId, imageId);
+    if (catch positions) return ctx.@error(500);
+
+    double prev = rank >= 2 ? positions[rank - 2] : 0.0;
+    double next = (rank - 1) < positions.len ? positions[rank - 1] : prev + 2000.0;
+    double new_pos = (prev + next) / 2.0;
+    double gap = next - prev;
+
+    if (gap < 1.0) {
+      double[]? all_ids = sqlite3::@query_all{double}(db,
+                                                      "SELECT image_id FROM tier_images WHERE tierlist_id=?1 AND tier_id=?2 ORDER BY position",
+                                                      id, tierId);
+      if (catch all_ids) return ctx.@error(500);
+
+      foreach (i, _id : all_ids) {
+        sqlite3::@insert(db,
+                         "UPDATE tier_images SET position=?1 WHERE image_id=?2 AND tierlist_id=?3",
+                         (double)(i + 1) * 1000.0, all_ids[i], id);
+      }
+    } else {
+      sqlite3::@insert(db,
+                       "INSERT OR REPLACE INTO tier_images(image_id, tier_id, tierlist_id, position) VALUES(?1,?2,?3,?4)",
+                       imageId, tierId, id, new_pos);
+    }
+  });
+
+  r.delete("/tierlists/:id/images/:image_id", fn (Context *ctx) {
+    String? id         = ctx.req.params["id"];
+    if (catch id) return ctx.@not_found();
+    String? imageId    = ctx.req.params["image_id"];
+    if (catch imageId) return ctx.@not_found();
+
+    sqlite3::@delete(db, "DELETE FROM tier_images WHERE tierlist_id = ?1 AND image_id = ?2", id, imageId);
   });
 
   r.delete("/tierlists/:id", fn (Context *ctx)
@@ -112,7 +186,7 @@ fn void main()
     ctx.@status(201);
     if (try ctx.req.headers["HX-Request"])
     {
-      ctx.@render("partials/image.html", "image", image);
+      ctx.@render("partials/image.html", "image", image, "draggable", true);
     }
   });
 

@@ -14,11 +14,13 @@ CREATE TABLE IF NOT EXISTS tiers (
 );
 
 CREATE TABLE IF NOT EXISTS tier_images (
-    image_id  INTEGER NOT NULL,
+    tierlist_id INTEGER NOT NULL,
     tier_id   INTEGER NOT NULL,
+    image_id  INTEGER NOT NULL,
     position  REAL NOT NULL,
-    PRIMARY KEY (image_id, tier_id),
-    FOREIGN KEY (tier_id) REFERENCES tiers(id) ON DELETE CASCADE
+    PRIMARY KEY (image_id, tierlist_id),
+    FOREIGN KEY (tier_id) REFERENCES tiers(id) ON DELETE CASCADE,
+    FOREIGN KEY (tierlist_id) REFERENCES tierlists(id) ON DELETE CASCADE,
     FOREIGN KEY (image_id) REFERENCES images(id) ON DELETE CASCADE
 );
 
