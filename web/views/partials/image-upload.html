@@ -1,0 +1,40 @@
+<form hx-encoding="multipart/form-data"
+      hx-post="/images"
+      hx-target="#images-list"
+      hx-swap="afterbegin"
+      x-data="{ processing: false }"
+      @htmx:before-request="processing=true"
+      @htmx:after-request="processing=false;$el.reset();"
+>
+  <fieldset :disabled="processing">
+    <label>
+      Upload Image
+      <input type="file"
+             name="image"
+             accept="image/png, image/jpeg"
+             required
+             />
+    </label>
+  </fieldset>
+
+  <button type="submit"
+          x-text="processing ? 'Uploading...' : 'Upload'"
+          :aria-busy="processing"
+          >
+    Upload
+  </button>
+</form>
+
+<div id="images-list"
+     class="grid"
+     {% if draggable then %}
+     @htmx:after-swap="Alpine.initTree($el)"
+     x-ref="images_list"
+     x-sort="tierImagesSortDelete('{{ tierlist_id }}', $item, $position)"
+     x-sort:group="tier-images"
+     {% end %}
+>
+  {% for _, image in ipairs(images) do %}
+  {% include("partials/image.html", { image = image, draggable = draggable }) %}
+  {% end %}
+</div>
