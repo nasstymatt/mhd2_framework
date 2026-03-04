@@ -39,6 +39,7 @@ fn void openUtf8(State *l) @cname("luaopen_utf8");
 fn void pushLString(State *l, char* buf, usz len) @cname("lua_pushlstring");
 fn void pushBool(State *l, bool b) @cname("lua_pushboolean");
 fn void pushInt(State *l, long b) @cname("lua_pushinteger");
+fn void pushNumber(State *l, double b) @cname("lua_pushnumber");
 fn void pushNil(State *l) @cname("lua_pushnil");
 fn void pushValue(State *l, int idx) @cname("lua_pushvalue");
 fn void createTable(State *l, int narr, int nrec) @cname("lua_createtable");
@@ -96,19 +97,23 @@ macro void pop(State *l, int n)
   return setTop(l, -n - 1);
 }
 
-macro void @pushValue(State *l, #val)
+macro @pushValue(State *l, #val)
 {
     $switch $typeof(#val):
       $case String:
         pushLString(l, #val, #val.len);
+        return;
       $case bool:
         pushBool(l, #val);
+        return;
     $endswitch
 
     $switch $kindof(#val):
       $case SIGNED_INT:
       $case UNSIGNED_INT:
         pushInt(l, #val);
+      $case FLOAT:
+        pushNumber(l, #val);
       $case SLICE:
       $case ARRAY:
         createTable(l, #val.len, 0);
