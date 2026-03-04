@@ -91,7 +91,7 @@ macro Context.@error(&self, int sc = 500, String text = "")
   self.@status(sc);
 }
 
-macro void Context.@render(&self, String path, ...)
+macro Context.@render(&self, String path, ...)
 {
   self.@html(templates::@render(path, $vasplat));
 }

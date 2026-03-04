@@ -52,21 +52,14 @@ fn void RouteStep.handle(&self, Context *ctx) @dynamic
   if (reqPathSegments.len != self.pathSegments.len) return ctx.next();
 
   // Validate params
-  usz paramIndex = 0;
-  usz[] paramsIndices = allocator::new_array(tmem, usz, reqPathSegments.len);
   for (usz i = 0; i < reqPathSegments.len; i++)
   {
     if (self.pathSegments[i].starts_with(":"))
     {
-      paramsIndices[paramIndex++] = i;
+      ctx.req.params[self.pathSegments[i][1..]] = reqPathSegments[i];
       continue;
     }
     if (self.pathSegments[i] != reqPathSegments[i]) return ctx.next();
-  }
-
-  foreach (i : paramsIndices[:paramIndex])
-  {
-    ctx.req.params[self.pathSegments[i][1..]] = reqPathSegments[i];
   }
 
   self.handler(ctx);
