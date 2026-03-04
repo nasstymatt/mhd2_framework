@@ -4,7 +4,10 @@ local function image_url(image_path)
 end
 %}
 
-<figure>
-  <img src="{{ image_url(image.image_path) }}" alt="{{ image.original_filename }}" />
-  <figcaption>{{ image.original_filename }}</figcaption>
-</figure>
+<div class="tier__image"
+     style="background-image:url({{ image_url(image.image_path) }});"
+     {% if draggable then %}
+     x-sort:item="{{ image.id }}"
+     {% end %}
+>
+</div>

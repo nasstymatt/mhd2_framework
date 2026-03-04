@@ -5,38 +5,8 @@
   <h1>Images</h1>
 
   <section>
-    <form hx-encoding="multipart/form-data"
-          hx-post
-          hx-target="#images-list"
-          hx-swap="afterbegin"
-          x-data="{ processing: false }"
-          @htmx:before-request="processing=true"
-          @htmx:after-request="processing=false;$el.reset()"
-          >
-
-      <fieldset :disabled="processing">
-        <label>
-          Upload Image
-          <input type="file"
-                 name="image"
-                 accept="image/png, image/jpeg"
-                 required
-          />
-        </label>
-      </fieldset>
-
-      <button type="submit"
-              x-text="processing ? 'Uploading...' : 'Upload'"
-              :aria-busy="processing"
-      >
-        Upload
-      </button>
-    </form>
-  </section>
-
-  <section>
-    <h3>All images</h3>
-    {% include("partials/images-list.html") %}
+    <h2>Upload</h2>
+    {% include("partials/image-upload.html") %}
   </section>
 </main>
 {% endblock() %}

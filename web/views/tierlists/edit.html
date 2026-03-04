@@ -1,16 +1,77 @@
 {% extends("base.html") %}
 
-{% block("body") %}
-<main class="container">
-  <h1>{{ tierlist.title }} - <small>{{ tierlist.created_at }}</small></h1>
+{%
+local imageMap = {}
+for _, image in ipairs(allImages) do
+  imageMap[image.id] = image
+end
+local tierBuckets = {}
+for _, ti in ipairs(tierImages) do
+  tierBuckets[ti.tier_id] = tierBuckets[ti.tier_id] or {}
+  table.insert(tierBuckets[ti.tier_id], ti)
+end
+%}
 
-  <h2 id="edit-tierlist-form-title">Edit tierlist</h2>
-  <form aria-labelledby="edit-tierlist-form-title" hx-put>
-    {% include("partials/tierlist-edit-fieldset.html") %}
-    <input type="submit" value="Save" />
-  </form>
-  <button class="danger" style="width:100%" hx-delete hx-confirm="Delete tierlist {{ tierlist.title }}?">
-    Delete
-  </button>
+{% block("body") %}
+<main class="container" x-data>
+  <header>
+    <h1>{{ tierlist.title }}</h1>
+    <p>{{ tierlist.created_at }}</p>
+  </header>
+
+  <section>
+    <h2 id="edit-tierlist-form-title">Edit tierlist</h2>
+    <form aria-labelledby="edit-tierlist-form-title" hx-put>
+      {% include("partials/tierlist-edit-fieldset.html") %}
+      <input type="submit" value="Save" />
+      <button type="button" class="danger" style="width:100%;" hx-delete hx-confirm="Delete tierlist {{ tierlist.title }}?">
+        Delete
+      </button>
+    </form>
+  </section>
+
+  <section>
+    <h2>Tiers</h2>
+    <div id="tiers">
+      {% for _, tier in ipairs(tiers) do %}
+      <div class="tier">
+        <div class="label" style="--pico-background-color:{{ tier.color }};">
+          <span>{{ tier.title }}</span>
+        </div>
+        <div class="images"
+             x-sort="tierImagesSort('{{ tierlist.id }}', '{{ tier.id }}', $item, $position)"
+             x-sort:group="tier-images"
+        >
+          {% for _, ti in ipairs(tierBuckets[tier.id] or {}) do %}
+          {% include("partials/image.html", { image = imageMap[ti.image_id], draggable = true }) %}
+          {% end %}
+        </div>
+      </div>
+      {% end %}
+    </div>
+  </section>
+
+  <section>
+    <h2>Upload image</h2>
+    {% include("partials/image-upload.html", { draggable = true, tierlist_id = tierlist.id }) %}
+  </section>
 </main>
+{% endblock() %}
+
+{% block("scripts") %}
+<script type="text/javascript">
+  function tierImagesSort(tierlist_id, tier_id, image_id, position) {
+      htmx.ajax('PUT', `/tierlists/${tierlist_id}/images/${image_id}`, {
+          values: { tier_id, position },
+          swap: 'none',
+      });
+  }
+  
+  function tierImagesSortDelete(tierlist_id, image_id) {
+      htmx.ajax('DELETE', `/tierlists/${tierlist_id}/images/${image_id}`, {
+          swap: 'none',
+      });
+  }
+
+</script>
 {% endblock() %}

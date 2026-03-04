@@ -15,21 +15,21 @@
 
     <tbody>
       {% for _, tierlist in ipairs(tierlists) do %}
-        <tr id="tierlist-{{ tierlist.id }}">
-          <th scope="row">
-            <a href="/tierlists/{{ tierlist.id }}">{{ tierlist.title }}</a>
-          </th>
-          <td>{{ tierlist.created_at }}</td>
-          <td>
-            <a hx-delete="/tierlists/{{ tierlist.id }}"
-               hx-target="#tierlist-{{ tierlist.id }}"
-               hx-swap="delete"
-               hx-confirm="Delete tierlist {{ tierlist.title }}?"
-               >
-              Delete
-            </a>
-          </td>
-        </tr>
+      <tr id="tierlist-{{ tierlist.id }}">
+        <th scope="row">
+          <a href="/tierlists/{{ tierlist.id }}">{{ tierlist.title }}</a>
+        </th>
+        <td>{{ tierlist.created_at }}</td>
+        <td>
+          <button hx-delete="/tierlists/{{ tierlist.id }}"
+             hx-target="#tierlist-{{ tierlist.id }}"
+             hx-swap="delete"
+             hx-confirm="Delete tierlist {{ tierlist.title }}?"
+           >
+            Delete
+          </button>
+        </td>
+      </tr>
       {% end %}
     </tbody>
   </table>
