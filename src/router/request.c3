@@ -2,6 +2,8 @@ module router;
 
 import std::collections::map;
 
+faultdef PARAM_NOT_FOUND;
+
 struct FileUpload
 {
   String fileName;
@@ -20,7 +22,8 @@ struct Request
   HashMap{String, FileUpload} files;
 }
 
-macro Request.@header(&self, #key)
+macro Request.@param(&self, #key)
 {
-  return self.headers[#key];
+  if (try param = self.params[#key]) return param;
+  return PARAM_NOT_FOUND~;
 }

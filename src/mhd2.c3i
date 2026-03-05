@@ -5,7 +5,7 @@ alias Response = void;
 alias Daemon = void;
 alias Action = void;
 
-enum HttpMethod : const inline int
+constdef HttpMethod
 {
   OTHER = 255,
 
@@ -18,7 +18,7 @@ enum HttpMethod : const inline int
   OPTIONS = 7,
 }
 
-enum PostEncoding : const int
+enum PostEncoding : int
 {
   OTHER,
   FORM_URLENCODED,
@@ -26,36 +26,36 @@ enum PostEncoding : const int
   TEXT_PLAIN,
 }
 
-enum AddressFamily : const CInt
+enum AddressFamily : int
 {
   AF_NONE,
   AF_AUTO,
 }
 
-enum HttpStatusCode : const CInt
+constdef HttpStatusCode
 {
   OK = 200,
   NOT_FOUND = 404,
 }
 
-enum StatusCode : const CInt
+constdef StatusCode
 {
   OK = 0,
 }
 
-enum DaemonOption : const CInt
+constdef DaemonOption
 {
   WORK_MODE = 40,
   BIND_PORT = 80,
 }
 
-enum WorkMode : const CInt
+constdef WorkMode
 {
   WORKER_THREADS = 24,
   THREAD_PER_CONNECTION = 32
 }
 
-enum PostParseResult : const CInt
+constdef PostParseResult
 {
   OK = 0,
   REQUEST_EMPTY = 1,
@@ -71,7 +71,7 @@ enum PostParseResult : const CInt
   FAILED_INVALID_POST_FORMAT = 90,
 }
 
-enum UploadActionType : const inline CInt
+constdef UploadActionType
 {
   NO_ACTION = 0,
   CONTINUE,
@@ -148,7 +148,7 @@ struct DaemonOptionAndValue
 
 alias UpgradedHandle = void;
 
-enum ValueKind : const CUInt
+constdef ValueKind : CUInt
 {
   HEADER = 1 << 0,
   COOKIE = 1 << 1,
@@ -261,3 +261,7 @@ macro @to_mhd_string_nullable(String $str)
 {
   return (StringNullable) { $str.len, $str };
 }
+
+alias PanicCallback = fn void (void *cls, ZString file, ZString func, CUInt line, ZString message);
+
+fn void libSetPanicFunc(PanicCallback cb, void *cbCls) @cname("MHD_lib_set_panic_func");

@@ -15,6 +15,7 @@
   "sources": [ "src/**" ],
   // Test sources compiled for all targets.
   "test-sources": [ "test/**" ],
+  "safe": true,
   // C sources if the project also compiles C sources
   // relative to the project file.
   // "c-sources": [ "csource/**" ],

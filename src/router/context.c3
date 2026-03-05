@@ -18,29 +18,29 @@ struct Context
   usz routeIdx;
 }
 
-fn void Context.next(&self)
+fn void? Context.next(&self)
 {
   while (self.routeIdx < self.r.steps.len())
   {
     Step *s = &self.r.steps[self.routeIdx++];
-    s.handle(self);
+    s.handle(self)!;
     return;
   }
 
   self.@not_found();
 }
 
-macro void Context.@text(&self, String #text)
+macro Context.@text(&self, String #text)
 {
   self.res.bodyKind = BUFFER;
-  self.res.headers.push({"Content-Type", "text/plain"});
+  self.res.@add_header("Content-Type", "text/plain");
   self.res.body = #text;
 }
 
-macro void Context.@html(&self, String #html)
+macro Context.@html(&self, String #html)
 {
   self.res.bodyKind = BUFFER;
-  self.res.headers.push({"Content-Type", "text/html"});
+  self.res.@add_header("Content-Type", "text/html");
   self.res.body = #html;
 }
 
@@ -93,5 +93,5 @@ macro Context.@error(&self, int sc = 500, String text = "")
 
 macro Context.@render(&self, String path, ...)
 {
-  self.@html(templates::@render(path, $vasplat));
+  self.@html(templates::@render(path, $vasplat)!);
 }

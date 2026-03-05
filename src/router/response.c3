@@ -28,7 +28,7 @@ struct Response
   }
 }
 
-macro Response.@header(&self, #key, #value)
+macro Response.@add_header(&self, #key, #value)
 {
   self.headers.push({ #key, #value });
 }

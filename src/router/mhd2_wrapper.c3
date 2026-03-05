@@ -4,8 +4,16 @@ import mhd2;
 import router::reqstate;
 
 import std::collections::map;
-import libc;
 import std::io;
+import libc;
+
+faultdef DAEMON_CREATE_FAILED, DAEMON_OPTIONS_FAILED, DAEMON_START_FAILED;
+
+fn void panicHandler(void *cls, ZString file, ZString func, CUInt line, ZString message) @local
+{
+  io::eprintfn("MHD2 panic: %s:%u (%s): %s\n", file, line, func, message);
+  abort();
+}
 
 const MAX_NON_STREAM_SIZE = 64 * 1024;
 const ROUTER_HANDLER_POOL_SIZE = 64 * 1024;
@@ -13,11 +21,13 @@ const ROUTER_HANDLER_POOL_SIZE = 64 * 1024;
 extern fn Fd mkstemp(char *template) @cname("mkstemp") @local;
 extern fn int unlink(ZString path) @cname("unlink") @local;
 
-fn void listenAndServe(ushort port, Router *r)
+fn void? listenAndServe(ushort port, Router *r)
 {
+  mhd2::libSetPanicFunc(&panicHandler, null);
+
   mhd2::Daemon *d = mhd2::daemonCreate(&handleRequest, r);
 
-  assert(d != null, "Unable to create mhd daemon");
+  if (d == null) return DAEMON_CREATE_FAILED~;
 
   DaemonOptionAndValue[] opts = {
     {
@@ -40,8 +50,8 @@ fn void listenAndServe(ushort port, Router *r)
       },
   }};
 
-  assert(mhd2::daemonSetOptions(d, opts.ptr, opts.len) == 0, "Unable to set options");
-  assert(mhd2::daemonStart(d) == mhd2::StatusCode.OK, "Unable to start daemon");
+  if (mhd2::daemonSetOptions(d, opts.ptr, opts.len) != 0) return DAEMON_OPTIONS_FAILED~;
+  if (mhd2::daemonStart(d) != mhd2::StatusCode.OK) return DAEMON_START_FAILED~;
 
   libc::getchar();
 
@@ -50,7 +60,7 @@ fn void listenAndServe(ushort port, Router *r)
 
 fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *path, mhd2::HttpMethod method, ulong uploadSize) @local
 {
-  assert(cls != null, "No router passed into handleRequest");
+  if (cls == null) unreachable("No router passed into handleRequest");
 
   Router *r = (Router*)cls;
   ReqState *rs = reqstate::new();
@@ -60,7 +70,10 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
   rs.req.path = path.cstr.str_view();
   rs.res.statusCode = 200;
 
-  populateRequestHeaders(mreq, &rs.req);
+  mem::@scoped(&rs.mem)
+  {
+    populateRequestHeaders(mreq, &rs.req);
+  };
 
   // PUT/POST
   if (uploadSize > 0 && (method == POST || method == PUT))
@@ -170,8 +183,8 @@ fn mhd2::UploadAction* postDataFinished(mhd2::Request *mreq, void *cls, PostPars
   {
     Context ctx = { rs.r, &rs.req, &rs.res, 0 };
 
-    if (parsingResult != OK) { ctx.res.statusCode = 400; }
-    else { rs.r.handleRequest(&ctx); }
+    if (parsingResult != OK) { ctx.@status(400); }
+    else { ctx.r.handleRequest(&ctx); }
 
     mhd2::Response* mres = routerResponseToMHDResponse(ctx.res);
     return mhd2::uploadActionFromResponse(mreq, mres);
@@ -199,7 +212,8 @@ fn mhd2::Response* routerResponseToMHDResponse(router::Response *res) @local
 }
 
 
-fn void populateRequestHeaders(mhd2::Request *mreq, router::Request *req) @local
+
+macro populateRequestHeaders(mhd2::Request *mreq, router::Request *req) @local
 {
   mhd2::requestGetValuesCb(mreq,
                            mhd2::ValueKind.HEADER,
@@ -212,7 +226,7 @@ fn void populateRequestHeaders(mhd2::Request *mreq, router::Request *req) @local
                            req);
 }
 
-fn isz write_all(Fd fd, void *buf, usz count)
+macro isz write_all(Fd fd, void *buf, usz count) @local
 {
   usz written = 0;
   while (written < count)

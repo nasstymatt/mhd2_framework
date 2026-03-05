@@ -2,6 +2,8 @@ module lua;
 
 import std::io;
 
+faultdef LUA_ERROR, LOAD_FAILED, CALL_FAILED;
+
 alias State = void;
 alias CFunction = fn int (State *l);
 
@@ -9,12 +11,12 @@ const bool LUAI_IS32INT = (uint.max >> 30) >= 3;
 const int LUAI_MAXSTACK = LUAI_IS32INT ? 1000000 : 15000;
 const int LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
 
-enum ThreadStatus : const inline int
+constdef ThreadStatus
 {
   OK = 0
 }
 
-enum Type : const inline int
+constdef Type
 {
   NUMBER = 3,
   STRING = 4,
@@ -138,7 +140,9 @@ macro void @pushAll(State *l, ...)
   createTable(l, 0, $vacount / 2);
   $for var $i = 0; $i < $vacount; $i += 2:
     var $j = $i + 1;
-    $assert($typeof($vaarg[$i]) == String);
+    $if $typeof($vaarg[$i]) != String:
+      $error("Template vars table key must be of type String");
+    $endif
 
     pushLString(l, $vaarg[$i], $vaarg[$i].len);
     @pushValue(l, $vaarg[$j]);

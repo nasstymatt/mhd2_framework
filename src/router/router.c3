@@ -3,10 +3,11 @@ module router;
 import router::steps;
 
 import std::collections::list;
+import std::io;
 
-alias HandlerFn = fn void (Context *ctx);
+alias HandlerFn = fn void? (Context *ctx);
 
-enum HttpMethod : const inline int
+constdef HttpMethod
 {
   OTHER = 255,
 
@@ -24,11 +25,6 @@ struct Router
   List{Step} steps;
 }
 
-macro Router new()
-{
-  return (Router) {};
-}
-
 fn void Router.free(&self)
 {
   foreach (step : self.steps)
@@ -41,8 +37,17 @@ fn void Router.free(&self)
 
 fn void Router.handleRequest(&self, Context *ctx)
 {
-  ctx.r = self;
-  ctx.next();
+  if (catch err = ctx.next())
+  {
+    switch (err)
+    {
+      case router::PARAM_NOT_FOUND:
+        ctx.@not_found();
+      default:
+        io::eprintfn("Unhandler router error: %s", err);
+        ctx.@error();
+    }
+  }
 }
 
 macro void Router.@push_step(&self, #step) @local
@@ -63,35 +68,28 @@ fn void Router.handleStatic(&self, String srcPath, String mountAt)
 
 fn void Router.get(&self, String path, HandlerFn handlerFn)
 {
-  self.@push_step((RouteStep) {
-    .method = GET,
-    .path = path,
-    .handler = handlerFn
-  });
+  self.route(path, GET, handlerFn);
 }
 
 fn void Router.post(&self, String path, HandlerFn handlerFn)
 {
-  self.@push_step((RouteStep) {
-    .method = POST,
-    .path = path,
-    .handler = handlerFn
-  });
+  self.route(path, POST, handlerFn);
 }
 
 fn void Router.put(&self, String path, HandlerFn handlerFn)
 {
-  self.@push_step((RouteStep) {
-    .method = PUT,
-    .path = path,
-    .handler = handlerFn
-  });
+  self.route(path, PUT, handlerFn);
 }
 
 fn void Router.delete(&self, String path, HandlerFn handlerFn)
 {
+  self.route(path, DELETE, handlerFn);
+}
+
+fn void Router.route(&self, String path, HttpMethod method, HandlerFn handlerFn)
+{
   self.@push_step((RouteStep) {
-    .method = DELETE,
+    .method = method,
     .path = path,
     .handler = handlerFn
   });

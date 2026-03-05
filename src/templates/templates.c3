@@ -9,6 +9,20 @@ import std::io::os;
 import std::thread;
 import libc;
 
+alias PthreadKey = uint;
+alias PthreadDestructor = fn void (void* cls);
+
+extern fn int pthreadKeyCreate(PthreadKey* key, PthreadDestructor destructor) @cname("pthread_key_create") @local;
+extern fn int pthreadKeyDelete(PthreadKey key) @cname("pthread_key_delete") @local;
+extern fn int pthreadSetSpecific(PthreadKey key, void* value) @cname("pthread_setspecific") @local;
+
+PthreadKey luaStateKey @local;
+
+fn void closeLuaState(void *ptr) @local
+{
+  if (ptr != null) lua::close((lua::State*)ptr);
+}
+
 String basePath = "build/web/views";
 
 struct TemplateEntry
@@ -25,6 +39,7 @@ fn void initTplSrcCache() @local @init
 {
   tplSrcCache.init(mem);
   tplSrcMtx.init()!!;
+  pthreadKeyCreate(&luaStateKey, &closeLuaState);
 }
 
 fn void freeTplSrcCache() @local @finalizer
@@ -37,6 +52,7 @@ fn void freeTplSrcCache() @local @finalizer
   tplSrcCache.free();
   tplSrcMtx.unlock();
   tplSrcMtx.destroy();
+  pthreadKeyDelete(luaStateKey);
 }
 
 fn TemplateEntry? findTemplate(String name)
@@ -94,13 +110,14 @@ fn char[] readTplFile(Path p) @local
 
 const String TPL_CACHE_KEY = "TPL_CACHE";
 
-fn State* getLua() @private
+fn State*? getLua() @private
 {
   tlocal State* l = null;
   if (l != null) return l;
 
   l = lua::newState();
-  assert(l != null, "Unable to create Lua state");
+  if (l == null) return lua::LUA_ERROR~;
+  pthreadSetSpecific(luaStateKey, l);
 
   lua::requireF(l, "_G", &lua::openBase, 1);
   lua::pop(l, 1);
@@ -128,19 +145,27 @@ fn State* getLua() @private
 <*
  @require $vacount % 2 == 0 : "Args should be even to match key, value constraint"
 *>
-macro String @render(String path, ...)
+macro @render(String path, ...)
 {
-  State* l = getLua();
-  TemplateEntry te = findTemplate(path)!!;
+  State* l = getLua()!;
+  TemplateEntry te = findTemplate(path)!;
 
   lua::setTop(l, 0);
 
-  assert(pushTemplateFnCached(l, path, te), "Lua template load error: %s", lua::popError(l));
+  if (!pushTemplateFnCached(l, path, te))
+  {
+    lua::pop(l, 1); // pop error left on Lua stack
+    return lua::LOAD_FAILED~;
+  }
 
   lua::@pushAll(l, $vasplat); // push vars table
   lua::pushNil(l); // No yields allowed in child template, push nil as a second argument
 
-  assert(lua::pcall(l, 2, 1, 0) == lua::ThreadStatus.OK, "Lua render error: %s", lua::popError(l));
+  if (lua::pcall(l, 2, 1, 0) != lua::ThreadStatus.OK)
+  {
+    lua::pop(l, 1); // pop error left on Lua stack
+    return lua::CALL_FAILED~;
+  }
 
   String result = lua::toString(l, -1).str_view();
   lua::pop(l, 1);

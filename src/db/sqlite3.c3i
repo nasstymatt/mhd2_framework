@@ -7,9 +7,9 @@ const iptr TRANSIENT = -1;
 
 import std::io;
 
-faultdef NOT_FOUND;
+faultdef NOT_FOUND, EXEC_FAILED, PREPARE_FAILED, BIND_FAILED, STEP_FAILED, RESET_FAILED, TYPE_MISMATCH;
 
-enum OpenFlags : const inline int
+constdef OpenFlags : inline int
 {
   READONLY = 0x00000001,
   READWRITE = 0x00000002,
@@ -36,7 +36,7 @@ enum OpenFlags : const inline int
   MASTER_JOURNAL = 0x00004000,
 }
 
-enum Result : const inline int
+constdef Result
 {
   OK = 0,
   ERROR = 1,
@@ -71,7 +71,7 @@ enum Result : const inline int
   DONE = 101,
 }
 
-enum ColumnType : const inline int
+constdef ColumnType
 {
   INTEGER = 1,
   FLOAT = 2,
@@ -116,10 +116,10 @@ macro @transaction(SQlite3 *db; @body())
   }
 }
 
-macro Result @exec(SQlite3 *db, ZString sql)
+macro Result? @exec(SQlite3 *db, ZString sql)
 {
   Result r = exec(db, sql, null, null, null);
-  assert(r == Result.OK, "DB error: %s", errmsg(db));
+  if (r != Result.OK) return EXEC_FAILED~;
   return r;
 }
 
@@ -128,155 +128,131 @@ macro Result @exec_ok(SQlite3 *db, ZString sql)
   return exec(db, sql, null, null, null);
 }
 
-macro @bind_all(Statement *stmt, ...)
+macro void? @bind_all(Statement *stmt, ...)
 {
   $for var $i = 0; $i < $vacount; $i++:
     $switch ($typeof($vaarg[$i])):
       $case String:
-        assert(
-            bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) == Result.OK,
-            "DB error: bind failed"
-        );
+        if (bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) != Result.OK) return BIND_FAILED~;
       $case long:
-        assert(
-            bind_int64(stmt, $i + 1, $vaarg[$i]) == Result.OK,
-            "DB error: bind failed"
-        );
+        if (bind_int64(stmt, $i + 1, $vaarg[$i]) != Result.OK) return BIND_FAILED~;
       $case int:
-        assert(
-            bind_int(stmt, $i + 1, $vaarg[$i]) == Result.OK,
-            "DB error: bind failed"
-        );
+        if (bind_int(stmt, $i + 1, $vaarg[$i]) != Result.OK) return BIND_FAILED~;
       $case double:
       $case float:
-        assert(
-            bind_double(stmt, $i + 1, (double)$vaarg[$i]) == Result.OK,
-            "DB error: bind failed"
-        );
+        if (bind_double(stmt, $i + 1, (double)$vaarg[$i]) != Result.OK) return BIND_FAILED~;
       $default:
-        unreachable("DB error: bind for type %s is not implemented", $typeof($vaarg[$i]));
+        $error("DB error: bind for type %s is not implemented");
     $endswitch
   $endfor
 }
 
-macro long @insert(SQlite3 *db, ZString sql, ...)
+macro long? @insert(SQlite3 *db, ZString sql, ...)
 {
   Statement *stmt;
-  assert(
-    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
-    "DB error: prepare statement error: %s", errmsg(db)
-  );
+  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
-  @bind_all(stmt, $vasplat);
+  @bind_all(stmt, $vasplat)!;
 
-  assert(step(stmt) == Result.DONE, "DB error: insert failed: %s", errmsg(db));
+  if (step(stmt) != Result.DONE) return STEP_FAILED~;
 
   return sqlite3::last_insert_row_id(db);
 }
 
-macro void @update(SQlite3 *db, ZString sql, ...)
+macro void? @update(SQlite3 *db, ZString sql, ...)
 {
   Statement *stmt;
-  assert(
-    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
-    "DB error: prepare statement error: %s", errmsg(db)
-  );
+  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
-  @bind_all(stmt, $vasplat);
+  @bind_all(stmt, $vasplat)!;
 
-  assert(step(stmt) == Result.DONE, "DB error: update failed: %s", errmsg(db));
+  if (step(stmt) != Result.DONE) return STEP_FAILED~;
 }
 
-macro void @delete(SQlite3 *db, ZString sql, ...)
+macro void? @delete(SQlite3 *db, ZString sql, ...)
 {
   Statement *stmt;
-  assert(
-    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
-    "DB error: prepare statement error: %s", errmsg(db)
-  );
+  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
-  @bind_all(stmt, $vasplat);
+  @bind_all(stmt, $vasplat)!;
 
-  assert(step(stmt) == Result.DONE, "DB error: delete failed: %s", errmsg(db));
+  if (step(stmt) != Result.DONE) return STEP_FAILED~;
 }
 
-macro void @assign_value_from_col(#target, Statement *stmt, int col) @local
+macro void? @assign_value_from_col(#target, Statement *stmt, int col) @local
 {
   $switch :
     $case $typeof(#target) == String:
-      assert(column_type(stmt, col) == TEXT, "DB error: expected TEXT for column '%s'", column_name(stmt, col));
+      if (column_type(stmt, col) != TEXT) return TYPE_MISMATCH~;
       #target = column_text(stmt, col).str_view().tcopy();
     $case $typeof(#target) == bool:
-      assert(column_type(stmt, col) == INTEGER, "DB error: expected INTEGER for column '%s'", column_name(stmt, col));
+      if (column_type(stmt, col) != INTEGER) return TYPE_MISMATCH~;
       #target = column_int(stmt, col) != 0;
     $case $kindof(#target) == SIGNED_INT:
-      assert(column_type(stmt, col) == INTEGER, "DB error: expected INTEGER for column '%s'", column_name(stmt, col));
+      if (column_type(stmt, col) != INTEGER) return TYPE_MISMATCH~;
       #target = ($typeof(#target))column_int64(stmt, col);
     $case $kindof(#target) == UNSIGNED_INT:
-      assert(column_type(stmt, col) == INTEGER, "DB error: expected INTEGER for column '%s'", column_name(stmt, col));
+      if (column_type(stmt, col) != INTEGER) return TYPE_MISMATCH~;
       long v = column_int64(stmt, col);
-      assert(v >= 0, "DB error: negative INTEGER for unsigned field '%s'", column_name(stmt, col));
+      if (v < 0) return TYPE_MISMATCH~;
       #target = ($typeof(#target))v;
     $case $kindof(#target) == FLOAT:
-      assert(column_type(stmt, col) == FLOAT || column_type(stmt, col) == INTEGER, "DB error: expected FLOAT/INTEGER for column '%s'", column_name(stmt, col));
+      if (column_type(stmt, col) != FLOAT && column_type(stmt, col) != INTEGER) return TYPE_MISMATCH~;
       #target = ($typeof(#target))column_double(stmt, col);
     $default:
       $error("DB error: query target type is not supported");
   $endswitch
 }
 
-macro void @map_row_to_model(TModel *row, Statement *stmt, int cols) <TModel> @local
+macro void? @map_row_to_model(TModel *row, Statement *stmt, int cols) <TModel> @local
 {
   for (int col = 0; col < cols; col++)
   {
     $foreach $m : TModel.membersof:
       if ((ZString)$m.nameof == column_name(stmt, col))
       {
-        @assign_value_from_col(row.$eval($m.nameof), stmt, col);
+        @assign_value_from_col(row.$eval($m.nameof), stmt, col)!;
       }
     $endforeach
   }
 }
 
-macro void @read_row(TModel *out, Statement *stmt) <TModel> @local
+macro void? @read_row(TModel *out, Statement *stmt) <TModel> @local
 {
   int cols = column_count(stmt);
-  $switch :
-    $case TModel.kindof == STRUCT:
-      @map_row_to_model{TModel}(out, stmt, cols);
+  $switch TModel.kindof:
+    $case STRUCT:
+      @map_row_to_model{TModel}(out, stmt, cols)!;
     $default:
-      assert(cols >= 1, "DB error: query returned no columns");
-      @assign_value_from_col(*out, stmt, 0);
+      if (cols < 1) return NOT_FOUND~;
+      @assign_value_from_col(*out, stmt, 0)!;
   $endswitch
 }
 
-macro TModel[] @query_all(SQlite3 *db, ZString sql, ...) <TModel>
+macro TModel[]? @query_all(SQlite3 *db, ZString sql, ...) <TModel>
 {
   Statement *stmt;
-  assert(
-    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
-    "DB error: prepare statement error: %s", errmsg(db)
-  );
+  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
-  @bind_all(stmt, $vasplat);
+  @bind_all(stmt, $vasplat)!;
 
   usz row_count = 0;
   Result rc;
   for (rc = step(stmt); rc == ROW; rc = step(stmt)) row_count++;
-  assert(rc == DONE, "DB error: step failed: %s", errmsg(db));
+  if (rc != DONE) return STEP_FAILED~;
 
-  assert(reset(stmt) == OK, "DB error: reset failed: %s", errmsg(db));
+  if (reset(stmt) != OK) return RESET_FAILED~;
 
   TModel[] rows = mem::temp_array(TModel, row_count);
   for (rc = step(stmt), usz i = 0; rc == ROW; rc = step(stmt), i++)
   {
-    @read_row{TModel}(&rows[i], stmt);
+    @read_row{TModel}(&rows[i], stmt)!;
   }
-  assert(rc == DONE, "DB error: step failed: %s", errmsg(db));
+  if (rc != DONE) return STEP_FAILED~;
 
   return rows;
 }
@@ -284,22 +260,19 @@ macro TModel[] @query_all(SQlite3 *db, ZString sql, ...) <TModel>
 macro TModel? @query_one(SQlite3 *db, ZString sql, ...) <TModel>
 {
   Statement *stmt;
-  assert(
-    prepare_v2(db, sql, -1, &stmt, null) == Result.OK,
-    "DB error: prepare statement error: %s", errmsg(db)
-  );
+  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
-  @bind_all(stmt, $vasplat);
+  @bind_all(stmt, $vasplat)!;
 
   Result rc = step(stmt);
   if (rc != ROW) return NOT_FOUND~;
 
   TModel row = {};
-  @read_row{TModel}(&row, stmt);
+  @read_row{TModel}(&row, stmt)!;
 
   rc = step(stmt);
-  assert(rc == DONE, "DB error: expected one row, got more rows");
+  if (rc != DONE) return STEP_FAILED~;
 
   return row;
 }

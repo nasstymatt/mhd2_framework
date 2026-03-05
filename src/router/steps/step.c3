@@ -5,22 +5,23 @@ import std::io::path;
 import std::io::file;
 import libc;
 
+extern fn Fd open(ZString path, int flags) @cname("open") @local;
+
 interface Step
 {
   fn void init();
-  fn void handle(Context *ctx);
+  fn void? handle(Context *ctx);
   fn void free();
 }
-
 
 struct MiddlewareStep (Step)
 {
   HandlerFn handler;
 }
 
-fn void MiddlewareStep.handle(&self, Context *ctx) @dynamic
+fn void? MiddlewareStep.handle(&self, Context *ctx) @dynamic
 {
-  self.handler(ctx);
+  self.handler(ctx)!;
 }
 
 fn void MiddlewareStep.init(&self) @dynamic
@@ -44,7 +45,7 @@ fn void RouteStep.init(&self) @dynamic
   self.pathSegments = self.path.split(mem, "/");
 }
 
-fn void RouteStep.handle(&self, Context *ctx) @dynamic
+fn void? RouteStep.handle(&self, Context *ctx) @dynamic
 {
   if (ctx.req.method != self.method) return ctx.next();
 
@@ -62,7 +63,7 @@ fn void RouteStep.handle(&self, Context *ctx) @dynamic
     if (self.pathSegments[i] != reqPathSegments[i]) return ctx.next();
   }
 
-  self.handler(ctx);
+  self.handler(ctx)!;
 }
 
 fn void RouteStep.free(&self) @dynamic
@@ -77,7 +78,7 @@ struct MountStaticFolderStep (Step)
   String mountAt;
 }
 
-fn void MountStaticFolderStep.handle(&self, Context *ctx) @dynamic
+fn void? MountStaticFolderStep.handle(&self, Context *ctx) @dynamic
 {
   // TODO: Introduce HEAD method, cache, mime for static files
   if (ctx.req.method == GET)
@@ -92,18 +93,18 @@ fn void MountStaticFolderStep.handle(&self, Context *ctx) @dynamic
 
       if (path::is_file(p))
       {
-        Fd fd = file::open_path(p, "r")!!.fd();
-        assert(fd != -1, "Unable to open file");
+        Fd fd = open(p.str_view().zstr_tcopy(), 0);
+        if (fd == -1) return ctx.@not_found();
 
         ctx.res.file.fd = fd;
         ctx.res.bodyKind = FILEFD;
         ctx.res.file.offset = 0;
-        ctx.res.file.size = path::file_size(p)!!;
+        ctx.res.file.size = path::file_size(p)!;
         return;
       }
     }
   }
-  ctx.next();
+  ctx.next()!;
 }
 
 fn void MountStaticFolderStep.init(&self) @dynamic
