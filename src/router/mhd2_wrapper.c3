@@ -198,7 +198,8 @@ fn mhd2::Response* routerResponseToMHDResponse(router::Response *res) @local
   {
     case FILEFD:
       mres = mhd2::responseFromFd((mhd2::HttpStatusCode)res.statusCode, res.file.fd, res.file.offset, res.file.size);
-      break;
+    case BUFFER_STATIC:
+      mres = mhd2::responseFromBufferStatic((mhd2::HttpStatusCode)res.statusCode, res.bodyStatic.len, res.bodyStatic);
     case BUFFER:
     default:
       mres = mhd2::responseFromBufferCopy((mhd2::HttpStatusCode)res.statusCode, res.body.len, res.body);

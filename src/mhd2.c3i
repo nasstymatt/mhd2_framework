@@ -18,7 +18,7 @@ constdef HttpMethod
   OPTIONS = 7,
 }
 
-enum PostEncoding : int
+enum PostEncoding
 {
   OTHER,
   FORM_URLENCODED,
@@ -26,7 +26,7 @@ enum PostEncoding : int
   TEXT_PLAIN,
 }
 
-enum AddressFamily : int
+enum AddressFamily
 {
   AF_NONE,
   AF_AUTO,
@@ -165,65 +165,43 @@ struct NameAndValue
   mhd2::StringNullable value;
 }
 
+alias PanicCallback = fn void (void *cls, ZString file, ZString func, CUInt line, ZString message);
+fn void libSetPanicFunc(PanicCallback cb, void *cbCls) @cname("MHD_lib_set_panic_func");
 alias NameValueIterator = fn bool (void *cls, ValueKind kind, mhd2::NameAndValue *nv);
-
 fn usz requestGetValuesCb(Request *request, ValueKind kind, NameValueIterator iterator, void *iteratorCls)
   @cname("MHD_request_get_values_cb");
-
 fn bool requestGetValue(Request *request, ValueKind kind, ZString key, StringNullable *valueOut)
   @cname("MHD_request_get_value");
-
 alias HandlerFn = fn Action* (void *cls, Request *mreq, mhd2::String *path, HttpMethod method, ulong uploadSize);
-
 alias FreeCallback = fn void (void *cls);
-
-alias PostDataReader = fn UploadAction* (Request *req,
-                                         void *cls,
+alias PostDataReader = fn UploadAction* (Request *req, void *cls,
                                          mhd2::String *name,
                                          mhd2::StringNullable *filename,
                                          mhd2::StringNullable *contentType,
                                          mhd2::StringNullable *encoding,
-                                         usz size,
-                                         void *data,
-                                         ulong off,
+                                         usz size, void *data, ulong off,
                                          CInt finalData);
-
 alias PostDataFinished = fn UploadAction* (Request *mreq, void *cls, PostParseResult parsingResult);
-
 alias UpgradeHandler = fn void (void *cls, Request *req, UploadActionData *urh);
-
 fn Daemon* daemonCreate(HandlerFn handlerFn, void *cls) @cname("MHD_daemon_create");
-
 fn StatusCode daemonStart(Daemon *d) @cname("MHD_daemon_start");
-
 fn void daemonDestroy(Daemon *d) @cname("MHD_daemon_destroy");
-
 fn StatusCode daemonSetOptions(Daemon* d, DaemonOptionAndValue* options, usz optionsMaxNum)
   @cname("MHD_daemon_set_options");
-
 fn Action *actionFromResponse(Request *mreq, Response *mres) @cname("MHD_action_from_response");
-
 fn Response *responseFromBuffer(HttpStatusCode sc, usz bufSize, char *buf, FreeCallback freeCb, void *freeCbCls)
   @cname("MHD_response_from_buffer");
-
 fn Response *responseFromBufferCopy(HttpStatusCode sc, usz bufSize, char *buf)
   @cname("MHD_response_from_buffer_copy");
-
 fn Response* responseFromEmpty() @cname("MHD_response_from_empty");
-
 fn mhd2::String *httpMethodToString(HttpMethod sc) @cname("MHD_http_method_to_string");
-
 fn StatusCode responseAddHeader(Response *mres, ZString name, ZString value) @cname("MHD_response_add_header");
-
 fn Response *responseFromFd(HttpStatusCode sc, int fd, ulong offset, ulong size) @cname("MHD_response_from_fd");
-
 fn Action* actionParsePost(Request *mreq, usz bufferSize, usz maxNonStreamSize,
                                         PostEncoding enc, PostDataReader streamReader,
                                         void* readerCls, PostDataFinished doneCb,
                                         void* doneCbCls) @cname("MHD_action_parse_post");
-
 fn UploadAction* uploadActionContinue(Request *mreq) @cname("MHD_upload_action_continue");
-
 fn UploadAction* uploadActionFromResponse(
     Request* mreq,
     Response* response
@@ -251,17 +229,3 @@ macro Action* actionAbortRequest(Request *mreq)
 {
   return null;
 }
-
-macro @to_mhd_string(String $str)
-{
-  return (StringNullable) { $str.len, $str };
-}
-
-macro @to_mhd_string_nullable(String $str)
-{
-  return (StringNullable) { $str.len, $str };
-}
-
-alias PanicCallback = fn void (void *cls, ZString file, ZString func, CUInt line, ZString message);
-
-fn void libSetPanicFunc(PanicCallback cb, void *cbCls) @cname("MHD_lib_set_panic_func");

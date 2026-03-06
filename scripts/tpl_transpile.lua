@@ -1,5 +1,5 @@
---- @param src string
---- @return string
+local utils = require("scripts/utils")
+
 local function transpile(src)
 	local cursor = 1
 	local parts = {}
@@ -100,13 +100,9 @@ end
 	return table.concat(parts)
 end
 
-local tpl_dir = arg[1] or "web/views"
-
-local function read_all(path)
-	local f = assert(io.open(path, "rb"))
-	local s = f:read("*a")
-	return s
-end
+local args = utils.parse_args(arg)
+local tpl_dir = args.positional[1] or "web/views"
+local embed_templates = args.flags["embed"]
 
 local function ensure_dirs(path)
 	local sep = package.config:sub(1, 1)
@@ -130,46 +126,25 @@ local function write_out(path, content)
 	return ok
 end
 
--- local function bytes_to_c3(name, bytes)
--- 	io.write(("const char[] %s = {"):format(name))
--- 	for i = 1, #bytes do
--- 		if (i - 1) % 16 == 0 then
--- 			io.write("\n  ")
--- 		end
--- 		io.write(string.byte(bytes, i))
--- 		if i < #bytes then
--- 			io.write(", ")
--- 		end
--- 	end
--- 	io.write("\n};\n\n")
--- end
+local files = utils.find_files(tpl_dir, { ext = "html" })
+local embed_entries = {}
 
-local paths = {}
-for path in io.popen("find " .. tpl_dir .. ' -type f -name "*.html"'):lines() do
-	paths[#paths + 1] = path
-end
-table.sort(paths)
-
--- emit blobs
--- local entries = {}
-for _, path in ipairs(paths) do
-	local src = read_all(path)
+for _, path in ipairs(files) do
+	local src = utils.read_all(path)
 	local lua_src = transpile(src)
 	write_out("build/" .. path:gsub(".html", ".lua"), lua_src)
 
-	-- compile: transpile returns Lua code that itself returns the renderer function
-	-- local chunk = assert(load(lua_src, "@" .. path, "t"))
-	-- local renderer_factory = chunk()
-	-- local bytecode = string.dump(renderer_factory, true) -- strip debug
-
-	-- local sym = ("TPL_%04d"):format(idx)
-	-- bytes_to_c3(sym, bytecode)
-	-- entries[#entries + 1] = { path = path:gsub(tpl_dir, ""), sym = sym }
+	if embed_templates then
+		local chunk = assert(load(lua_src, "@" .. path, "t"))
+		local bytecode = string.dump(chunk, true)
+		local bytes = { bytecode:byte(1, #bytecode) }
+		local name = path:gsub(tpl_dir .. "/", "")
+		embed_entries[#embed_entries + 1] = ('  { "%s", %s, 0 }'):format(name, utils.dump_bytes_to_c3_const(bytes))
+	end
 end
 
--- emit table
--- print("const TemplateEntry[] TEMPLATES = {")
--- for _, e in ipairs(entries) do
--- 	print(('  { "%s", %s },'):format(e.path:gsub("\\", "\\\\"), e.sym))
--- end
--- print("};")
+if embed_templates then
+	print("const TemplateEntry[*] EMBEDDED_TEMPLATES = {")
+	print(table.concat(embed_entries, ",\n"))
+	print("};")
+end

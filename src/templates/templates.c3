@@ -18,12 +18,7 @@ extern fn int pthreadSetSpecific(PthreadKey key, void* value) @cname("pthread_se
 
 PthreadKey luaStateKey @local;
 
-fn void closeLuaState(void *ptr) @local
-{
-  if (ptr != null) lua::close((lua::State*)ptr);
-}
-
-String basePath = "build/web/views";
+String basePath @if(!$feature(EMBED_TEMPLATES)) = "build/web/views";
 
 struct TemplateEntry
 {
@@ -32,17 +27,34 @@ struct TemplateEntry
   long timestamp;
 }
 
-HashMap{String, TemplateEntry} tplSrcCache @local;
-Mutex tplSrcMtx @local;
+// NOTE: const TemplateEntry[*] EMBEDDED_TEMPLATES = {...};
+$exec("lua", { "scripts/tpl_transpile.lua", "--embed" }) @if($feature(EMBED_TEMPLATES));
 
-fn void initTplSrcCache() @local @init
+HashMap{String, TemplateEntry} tplSrcCache @local @if(!$feature(EMBED_TEMPLATES));
+Mutex tplSrcMtx @local @if(!$feature(EMBED_TEMPLATES));
+
+fn void closeLuaState(void *ptr) @local
 {
-  tplSrcCache.init(mem);
-  tplSrcMtx.init()!!;
+  if (ptr != null) lua::close((lua::State*)ptr);
+}
+
+fn void createPthreadLuaKey() @local @init
+{
   pthreadKeyCreate(&luaStateKey, &closeLuaState);
 }
 
-fn void freeTplSrcCache() @local @finalizer
+fn void deletePthreadLuaKey() @local @finalizer
+{
+  pthreadKeyDelete(luaStateKey);
+}
+
+fn void initTplSrcCache() @local @init @if(!$feature(EMBED_TEMPLATES))
+{
+  tplSrcCache.init(mem);
+  tplSrcMtx.init()!!;
+}
+
+fn void freeTplSrcCache() @local @finalizer @if(!$feature(EMBED_TEMPLATES))
 {
   tplSrcMtx.lock();
   tplSrcCache.@each(; key, value)
@@ -52,10 +64,19 @@ fn void freeTplSrcCache() @local @finalizer
   tplSrcCache.free();
   tplSrcMtx.unlock();
   tplSrcMtx.destroy();
-  pthreadKeyDelete(luaStateKey);
 }
 
-fn TemplateEntry? findTemplate(String name)
+fn TemplateEntry? findTemplate(String name) @if($feature(EMBED_TEMPLATES))
+{
+  foreach (&te : EMBEDDED_TEMPLATES)
+  {
+    if (te.path == name) return *te;
+  }
+
+  return NOT_FOUND~;
+}
+
+fn TemplateEntry? findTemplate(String name) @if(!$feature(EMBED_TEMPLATES))
 {
   tplSrcMtx.lock();
   TemplateEntry? cached = tplSrcCache[name];
@@ -97,7 +118,7 @@ fn TemplateEntry? findTemplate(String name)
   return cached;
 }
 
-fn char[] readTplFile(Path p) @local
+fn char[] readTplFile(Path p) @local @if(!$feature(EMBED_TEMPLATES))
 {
     char[] buffer = mem::new_array(char, path::file_size(p))!!;
     File file = file::open_path(p, "r")!!;
@@ -154,7 +175,9 @@ macro @render(String path, ...)
 
   if (!pushTemplateFnCached(l, path, te))
   {
-    lua::pop(l, 1); // pop error left on Lua stack
+    ZString err = lua::toLString(l, -1, null);
+    io::eprintfn("template load failed: %s", err);
+    lua::pop(l, 1);
     return lua::LOAD_FAILED~;
   }
 
@@ -195,8 +218,6 @@ fn bool pushTemplateFnCached(State* l, String name, TemplateEntry te) @local
   lua::pushLString(l, name.ptr, name.len);
   lua::getTable(l, -2);                                // stack: cache, entry|nil
 
-  bool need_recompile = true;
-
   if (lua::isTable(l, -1))
   {
     // entry.ts
@@ -222,7 +243,7 @@ fn bool pushTemplateFnCached(State* l, String name, TemplateEntry te) @local
   lua::pop(l, 1);                                      // pop entry|nil
 
   // Compile: loadbuffer(te.contents) -> chunk
-  if (lua::loadBufferX(l, te.contents, te.contents.len, name.zstr_tcopy(), "t") != lua::ThreadStatus.OK)
+  if (lua::loadBufferX(l, te.contents, te.contents.len, name.zstr_tcopy(), "bt") != lua::ThreadStatus.OK)
   {
     lua::remove(l, -2);                                // drop cache, leave error
     return false;

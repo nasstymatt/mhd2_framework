@@ -105,21 +105,18 @@ fn ZString errmsg(SQlite3 *db) @cname("sqlite3_errmsg");
 fn Result close(SQlite3 *db) @cname("sqlite3_close");
 fn void free(void *ptr) @cname("sqlite3_free");
 
-macro @transaction(SQlite3 *db; @body())
+macro void? @transaction(SQlite3 *db; @body())
 {
-  assert(@exec_ok(db, "BEGIN IMMEDIATE;") == Result.OK, "DB error: %s", errmsg(db));
+  @exec(db, "BEGIN IMMEDIATE;")!;
+  defer catch @exec_ok(db, "ROLLBACK;");
   @body();
-  if (@exec_ok(db, "COMMIT;") != Result.OK)
-  {
-    @exec_ok(db, "ROLLBACK;");
-    unreachable("DB error: %s", errmsg(db));
-  }
+  @exec(db, "COMMIT;")!;
 }
 
 macro Result? @exec(SQlite3 *db, ZString sql)
 {
   Result r = exec(db, sql, null, null, null);
-  if (r != Result.OK) return EXEC_FAILED~;
+  if (r != OK) return EXEC_FAILED~;
   return r;
 }
 
@@ -133,14 +130,14 @@ macro void? @bind_all(Statement *stmt, ...)
   $for var $i = 0; $i < $vacount; $i++:
     $switch ($typeof($vaarg[$i])):
       $case String:
-        if (bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) != Result.OK) return BIND_FAILED~;
+        if (bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) != OK) return BIND_FAILED~;
       $case long:
-        if (bind_int64(stmt, $i + 1, $vaarg[$i]) != Result.OK) return BIND_FAILED~;
+        if (bind_int64(stmt, $i + 1, $vaarg[$i]) != OK) return BIND_FAILED~;
       $case int:
-        if (bind_int(stmt, $i + 1, $vaarg[$i]) != Result.OK) return BIND_FAILED~;
+        if (bind_int(stmt, $i + 1, $vaarg[$i]) != OK) return BIND_FAILED~;
       $case double:
       $case float:
-        if (bind_double(stmt, $i + 1, (double)$vaarg[$i]) != Result.OK) return BIND_FAILED~;
+        if (bind_double(stmt, $i + 1, (double)$vaarg[$i]) != OK) return BIND_FAILED~;
       $default:
         $error("DB error: bind for type %s is not implemented");
     $endswitch
@@ -150,12 +147,12 @@ macro void? @bind_all(Statement *stmt, ...)
 macro long? @insert(SQlite3 *db, ZString sql, ...)
 {
   Statement *stmt;
-  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
+  if (prepare_v2(db, sql, -1, &stmt, null) != OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
   @bind_all(stmt, $vasplat)!;
 
-  if (step(stmt) != Result.DONE) return STEP_FAILED~;
+  if (step(stmt) != DONE) return STEP_FAILED~;
 
   return sqlite3::last_insert_row_id(db);
 }
@@ -163,23 +160,23 @@ macro long? @insert(SQlite3 *db, ZString sql, ...)
 macro void? @update(SQlite3 *db, ZString sql, ...)
 {
   Statement *stmt;
-  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
+  if (prepare_v2(db, sql, -1, &stmt, null) != OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
   @bind_all(stmt, $vasplat)!;
 
-  if (step(stmt) != Result.DONE) return STEP_FAILED~;
+  if (step(stmt) != DONE) return STEP_FAILED~;
 }
 
 macro void? @delete(SQlite3 *db, ZString sql, ...)
 {
   Statement *stmt;
-  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
+  if (prepare_v2(db, sql, -1, &stmt, null) != OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
   @bind_all(stmt, $vasplat)!;
 
-  if (step(stmt) != Result.DONE) return STEP_FAILED~;
+  if (step(stmt) != DONE) return STEP_FAILED~;
 }
 
 macro void? @assign_value_from_col(#target, Statement *stmt, int col) @local
@@ -235,7 +232,7 @@ macro void? @read_row(TModel *out, Statement *stmt) <TModel> @local
 macro TModel[]? @query_all(SQlite3 *db, ZString sql, ...) <TModel>
 {
   Statement *stmt;
-  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
+  if (prepare_v2(db, sql, -1, &stmt, null) != OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
   @bind_all(stmt, $vasplat)!;
@@ -260,7 +257,7 @@ macro TModel[]? @query_all(SQlite3 *db, ZString sql, ...) <TModel>
 macro TModel? @query_one(SQlite3 *db, ZString sql, ...) <TModel>
 {
   Statement *stmt;
-  if (prepare_v2(db, sql, -1, &stmt, null) != Result.OK) return PREPARE_FAILED~;
+  if (prepare_v2(db, sql, -1, &stmt, null) != OK) return PREPARE_FAILED~;
   defer finalize(stmt);
 
   @bind_all(stmt, $vasplat)!;

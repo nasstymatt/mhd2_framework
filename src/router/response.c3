@@ -5,6 +5,7 @@ import std::collections::list;
 enum ResponseBodyKind
 {
   BUFFER,
+  BUFFER_STATIC,
   FILEFD,
 }
 
@@ -24,6 +25,7 @@ struct Response
   union
   {
     String body;
+    char[] bodyStatic;
     ResponseFileFD file;
   }
 }

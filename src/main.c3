@@ -19,10 +19,9 @@ fn void main()
 
   r.get("/", fn (Context *ctx)
   {
-    models::TierList[] tierlists = sqlite3::@query_all{models::TierList}(db, "SELECT * FROM tierlists")!;
+    TierList[] tierlists = sqlite3::@query_all{TierList}(db, "SELECT * FROM tierlists")!;
     ctx.@render("index.html", "tierlists", tierlists)!;
   });
-
 
   r.get("/tierlists/create", fn (Context *ctx)
   {
@@ -41,24 +40,26 @@ fn void main()
     ctx.@redirect("/tierlists/:id", id);
   });
 
-
   r.get("/tierlists/:id", fn (Context *ctx)
   {
     String id = ctx.req.@param("id")!;
 
     // TODO: refactor
-    models::TierList tierlist = sqlite3::@query_one{models::TierList}(db, "SELECT * FROM tierlists WHERE id = ?1", id)!;
-    models::Tier[] tiers = sqlite3::@query_all{models::Tier}(db, "SELECT * FROM tiers WHERE tierlist_id = ?1", tierlist.id)!;
-    models::TierImage[] tierImages =
-      sqlite3::@query_all{models::TierImage}(db, "SELECT * FROM tier_images WHERE tierlist_id = ?1 ORDER BY tier_id, position", tierlist.id
-      )!;
-    models::Image[] allImages = sqlite3::@query_all{models::Image}(db,
-                                                                    "SELECT * FROM images",
-    )!;
-    models::Image[] images = sqlite3::@query_all{models::Image}(db,
-                                                                 "SELECT * FROM images WHERE id NOT IN (SELECT image_id FROM tier_images WHERE tierlist_id = ?1) ORDER BY created_at DESC",
-                                                                 tierlist.id
-    )!;
+    TierList tierlist = sqlite3::@query_one{TierList}(db, "SELECT * FROM tierlists WHERE id = ?1", id)!;
+    Tier[] tiers = sqlite3::@query_all{Tier}(db, "SELECT * FROM tiers WHERE tierlist_id = ?1", tierlist.id)!;
+    TierImage[] tierImages =
+      sqlite3::@query_all{TierImage}(db,
+                                     "SELECT * FROM tier_images "
+                                     "WHERE tierlist_id = ?1 "
+                                     "ORDER BY tier_id, position",
+                                     tierlist.id)!;
+    Image[] allImages = sqlite3::@query_all{Image}(db, "SELECT * FROM images",)!;
+    Image[] images =
+      sqlite3::@query_all{Image}(db,
+                                 "SELECT * FROM images "
+                                 "WHERE id NOT IN (SELECT image_id FROM tier_images WHERE tierlist_id = ?1) "
+                                 "ORDER BY created_at DESC",
+                                 tierlist.id)!;
 
     ctx.@render("tierlists/edit.html",
                 "tierlist",   tierlist,
@@ -92,14 +93,14 @@ fn void main()
     String? posStr     = ctx.req.formData["position"];
     if (catch posStr) return ctx.@error(400);
 
-    int rank = posStr.to_int()!! + 1; // 1-based index from Alpine
-
+    int rank = posStr.to_int()!! + 1; // 1-based index from x-sort
     // Fetch existing positions in the destination tier, excluding this image
     double[]? positions = sqlite3::@query_all{double}(db,
                                                       "SELECT position FROM tier_images WHERE tierlist_id=?1 AND tier_id=?2 AND image_id!=?3 ORDER BY position",
                                                       id, tierId, imageId);
     if (catch positions) return ctx.@error(500);
 
+    // NOTE: Reranking, possibly fragile part
     double prev = rank >= 2 ? positions[rank - 2] : 0.0;
     double next = (rank - 1) < positions.len ? positions[rank - 1] : prev + 2000.0;
     double new_pos = (prev + next) / 2.0;
@@ -148,14 +149,7 @@ fn void main()
 
   r.get("/images", fn (Context *ctx)
   {
-    models::Image[] images = sqlite3::@query_all{models::Image}(db, "SELECT * FROM images ORDER BY created_at desc")!;
-    // if (try ctx.req.headers["HX-Request"])
-    // {
-    //   io::printn("HX req!");
-    //   return;
-    // }
-    //
-
+    Image[] images = sqlite3::@query_all{Image}(db, "SELECT * FROM images ORDER BY created_at desc")!;
     ctx.@render("images.html", "images", images)!;
   });
 
@@ -164,7 +158,7 @@ fn void main()
     FileUpload? uploadImage = ctx.req.files["image"];
     if (catch uploadImage) return ctx.@error(400);
 
-    String outPath = string::join(mem, { "data/images", uploadImage.fileName }, "/");
+    String outPath = string::join(tmem, { "data/images", uploadImage.fileName }, "/");
     if (libc::rename(uploadImage.path.zstr_tcopy(), outPath.zstr_tcopy()) != 0)
     {
       io::eprintfn("Unable to rename file %s, errno = %d", uploadImage.path, libc::errno());
@@ -172,7 +166,7 @@ fn void main()
     }
 
     long id = sqlite3::@insert(db, "INSERT INTO images(image_path, original_filename) VALUES(?1, ?2)", outPath, uploadImage.fileName)!;
-    models::Image image = sqlite3::@query_one{models::Image}(db, "SELECT * FROM images WHERE id = ?1", id)!!;
+    Image image = sqlite3::@query_one{Image}(db, "SELECT * FROM images WHERE id = ?1", id)!!;
 
     ctx.@status(201);
     if (try ctx.req.headers["HX-Request"])
@@ -184,8 +178,8 @@ fn void main()
     }
   });
 
+  r.handleStatic("web/assets", "/assets", $feature(EMBED_ASSETS));
   r.handleStatic("data/images", "/uploads/images");
-  r.handleStatic("web/assets", "/assets");
 
   router::mhd2::listenAndServe(8080, &r)!!;
 }
@@ -213,7 +207,7 @@ fn void initDb() @init
     sqlite3::@exec(db, $embed("../sql/001-schema.sql"))!!;
     sqlite3::@exec(db, $embed("../sql/002-triggers.sql"))!!;
     sqlite3::@exec(db, $embed("../sql/003-indexes.sql"))!!;
-  };
+  }!!;
 }
 
 fn void cleanUpDb() @finalizer

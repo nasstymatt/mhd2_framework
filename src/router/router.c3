@@ -61,9 +61,9 @@ fn void Router.use(&self, HandlerFn f)
   self.@push_step((MiddlewareStep) { f });
 }
 
-fn void Router.handleStatic(&self, String srcPath, String mountAt)
+fn void Router.handleStatic(&self, String srcPath, String mountAt, bool embed = false)
 {
-  self.@push_step((MountStaticFolderStep) { srcPath, mountAt });
+  self.@push_step((MountStaticFolderStep) { srcPath, mountAt, embed });
 }
 
 fn void Router.get(&self, String path, HandlerFn handlerFn)
