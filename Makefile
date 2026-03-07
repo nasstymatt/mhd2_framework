@@ -1,6 +1,6 @@
 .PHONY: all dev release deps deps-release clean clean-deps
 
-LIB_MHD_DEV    = third_party/libmicrohttpd2/src/mhd2/.libs/libmicrohttpd2.a
+LIB_MHD_DEV    = third_party/libmicrohttpd2/build-dev/src/mhd2/.libs/libmicrohttpd2.a
 LIB_MHD_REL    = third_party/libmicrohttpd2/build-release/src/mhd2/.libs/libmicrohttpd2.a
 LIB_LUA        = third_party/lua/liblua.a
 LIB_SQLITE_DEV = third_party/sqlite/libsqlite3.a
@@ -24,11 +24,12 @@ dev:
 deps:         $(LIB_MHD_DEV) $(LIB_LUA) $(LIB_SQLITE_DEV)
 deps-release: $(LIB_MHD_REL) $(LIB_LUA) $(LIB_SQLITE_REL)
 
-# dev: plain build, all features, easier to debug
+# dev: out-of-source, plain build, all features, easier to debug
 $(LIB_MHD_DEV):
-	cd third_party/libmicrohttpd2 && \
-		./bootstrap && \
-		./configure \
+	cd third_party/libmicrohttpd2 && ./bootstrap
+	mkdir -p third_party/libmicrohttpd2/build-dev
+	cd third_party/libmicrohttpd2/build-dev && \
+		../configure \
 			--disable-maintainer-mode \
 			--disable-https \
 			--disable-basic-auth \
@@ -132,7 +133,7 @@ clean:
 	rm -rf build/
 
 clean-deps:
-	$(MAKE) -C third_party/libmicrohttpd2 clean
+	rm -rf third_party/libmicrohttpd2/build-dev
 	rm -rf third_party/libmicrohttpd2/build-release
 	$(MAKE) -C third_party/lua clean
 	$(MAKE) -C third_party/sqlite clean

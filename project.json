@@ -11,7 +11,7 @@
     // dev: plain dep builds, templates/assets loaded from disk at runtime
     "tierlister": {
       "type": "executable",
-      "linker-search-paths": ["third_party/libmicrohttpd2/src/mhd2/.libs", "third_party/lua", "third_party/sqlite"]
+      "linker-search-paths": ["third_party/libmicrohttpd2/build-dev/src/mhd2/.libs", "third_party/lua", "third_party/sqlite"]
     },
     // release: static binary, templates/assets embedded, deps built tight and small
     //   - MHD:    compact code, no error messages or log strings
