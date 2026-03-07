@@ -72,7 +72,7 @@ fn void main()
 
   r.put("/tierlists/:id", fn (Context *ctx)
   {
-    String? id = ctx.req.params["id"];
+    String? id = ctx.req.@param("id");
     if (catch id) return ctx.@not_found();
 
     String title = ctx.req.formData["title"] ?? "";
@@ -84,9 +84,9 @@ fn void main()
   });
 
   r.put("/tierlists/:id/images/:image_id", fn (Context *ctx) {
-    String? id         = ctx.req.params["id"];
+    String? id         = ctx.req.@param("id");
     if (catch id) return ctx.@not_found();
-    String? imageId    = ctx.req.params["image_id"];
+    String? imageId    = ctx.req.@param("image_id");
     if (catch imageId) return ctx.@not_found();
     String? tierId     = ctx.req.formData["tier_id"];
     if (catch tierId) return ctx.@error(400);
@@ -125,9 +125,9 @@ fn void main()
   });
 
   r.delete("/tierlists/:id/images/:image_id", fn (Context *ctx) {
-    String? id         = ctx.req.params["id"];
+    String? id         = ctx.req.@param("id");
     if (catch id) return ctx.@not_found();
-    String? imageId    = ctx.req.params["image_id"];
+    String? imageId    = ctx.req.@param("image_id");
     if (catch imageId) return ctx.@not_found();
 
     sqlite3::@delete(db, "DELETE FROM tier_images WHERE tierlist_id = ?1 AND image_id = ?2", id, imageId)!;
@@ -135,7 +135,7 @@ fn void main()
 
   r.delete("/tierlists/:id", fn (Context *ctx)
   {
-    String? id = ctx.req.params["id"];
+    String? id = ctx.req.@param("id");
     if (catch id) return ctx.@not_found();
 
     sqlite3::@delete(db, "DELETE FROM tierlists WHERE id = ?1", id)!;
