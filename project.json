@@ -4,19 +4,24 @@
   "authors": [ "Dmytro Zhukov <weary.gerbill@gmail.com>" ],
   "version": "0.1.0",
   "sources": [ "src/**" ],
-  "linked-libraries": ["-l:libmicrohttpd2.a", "-l:liblua.a", "-l:libsqlite3.a"],
-  "linker-search-paths": ["third_party/libmicrohttpd2/src/mhd2/.libs", "third_party/lua", "third_party/sqlite"],
   "output": "build",
   "script-dir": ".",
+  "linked-libraries": ["-l:libmicrohttpd2.a", "-l:liblua.a", "-l:libsqlite3.a"],
   "targets": {
+    // dev: plain dep builds, templates/assets loaded from disk at runtime
     "tierlister": {
-      "type": "executable"
+      "type": "executable",
+      "linker-search-paths": ["third_party/libmicrohttpd2/src/mhd2/.libs", "third_party/lua", "third_party/sqlite"]
     },
+    // release: static binary, templates/assets embedded, deps built tight and small
+    //   - MHD:    compact code, no error messages or log strings
+    //   - SQLite: 17 unused features omitted via configure + CFLAGS
     "tierlister-release": {
       "type": "executable",
-      "opt": "O3",
       "features": ["EMBED_TEMPLATES", "EMBED_ASSETS"],
-      "link-args": ["-static"]
+      "link-args": ["-static"],
+      "linked-libraries": ["-l:libmicrohttpd2.a", "-l:liblua.a", "-l:libsqlite3.a"],
+      "linker-search-paths": ["third_party/libmicrohttpd2/build-release/src/mhd2/.libs", "third_party/lua", "third_party/sqlite/build-release"]
     }
   },
   "cpu": "generic"
