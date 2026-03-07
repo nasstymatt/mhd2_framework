@@ -9,17 +9,17 @@ import libc;
 
 faultdef DAEMON_CREATE_FAILED, DAEMON_OPTIONS_FAILED, DAEMON_START_FAILED;
 
-fn void panicHandler(void *cls, ZString file, ZString func, CUInt line, ZString message) @local
-{
-  io::eprintfn("MHD2 panic: %s:%u (%s): %s\n", file, line, func, message);
-  abort();
-}
-
 const MAX_NON_STREAM_SIZE = 64 * 1024;
 const ROUTER_HANDLER_POOL_SIZE = 64 * 1024;
 
 extern fn Fd mkstemp(char *template) @cname("mkstemp") @local;
 extern fn int unlink(ZString path) @cname("unlink") @local;
+
+fn void panicHandler(void *cls, ZString file, ZString func, CUInt line, ZString message) @local
+{
+  io::eprintfn("MHD2 panic: %s:%u (%s): %s\n", file, line, func, message);
+  abort();
+}
 
 fn void? listenAndServe(ushort port, Router *r)
 {
@@ -145,11 +145,11 @@ fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
   FileUploadState*? upload = rs.filesUpload.get_ref(fieldName);
   if (catch upload) return mhd2::uploadActionContinue(mreq);
 
+  // NOTE: we need this for now to avoid mhd2 upload offset regression bug
   if (size > 1 * 1024 * 1024) return mhd2::uploadActionContinue(mreq);
 
   if (upload.fd == -1 || write_all(upload.fd, data, size) == -1) return mhd2::uploadActionContinue(mreq);
 
-  // finalize: close fd, store path in rs.req
   if (finalData)
   {
     libc::close(upload.fd);
