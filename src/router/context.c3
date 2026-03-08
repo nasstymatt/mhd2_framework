@@ -23,10 +23,8 @@ fn void? Context.next(&self)
   while (self.routeIdx < self.r.steps.len())
   {
     Step *s = &self.r.steps[self.routeIdx++];
-    s.handle(self)!;
-    return;
+    return s.handle(self)!;
   }
-
   self.@not_found();
 }
 
@@ -71,7 +69,7 @@ macro Context.@redirect(&self, String location, ..., int sc = 303)
   assert(paramCount == $vacount, "redirect path has %d param(s) but %d argument(s) were provided", paramCount, $vacount);
 
   self.@status(sc);
-  self.res.headers.push({"Location", string::join(tmem, pathSegments, "/")});
+  self.res.@add_header("Location", string::join(tmem, pathSegments, "/"));
 }
 
 <*
@@ -91,7 +89,7 @@ macro Context.@error(&self, int sc = 500, String text = "")
   self.@status(sc);
 }
 
-macro Context.@render(&self, String path, ...)
+macro Context.@tmpl(&self, String path, ...)
 {
-  self.@html(templates::@render(path, $vasplat)!);
+  self.@html(templates::@render_file(path, $vasplat)!);
 }

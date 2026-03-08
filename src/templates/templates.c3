@@ -166,7 +166,7 @@ fn State*? getLua() @private
 <*
  @require $vacount % 2 == 0 : "Args should be even to match key, value constraint"
 *>
-macro @render(String path, ...)
+macro @render_file(String path, ...)
 {
   State* l = getLua()!;
   TemplateEntry te = findTemplate(path)!;

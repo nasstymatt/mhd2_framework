@@ -9,7 +9,6 @@ import std::io;
 import std::io::path;
 import libc;
 
-
 SQlite3 *db;
 
 fn void main()
@@ -20,12 +19,12 @@ fn void main()
   r.get("/", fn (Context *ctx)
   {
     TierList[] tierlists = sqlite3::@query_all{TierList}(db, "SELECT * FROM tierlists")!;
-    ctx.@render("index.html", "tierlists", tierlists)!;
+    ctx.@tmpl("index.html", "tierlists", tierlists)!;
   });
 
   r.get("/tierlists/create", fn (Context *ctx)
   {
-    ctx.@render("tierlists/create.html")!;
+    ctx.@tmpl("tierlists/create.html")!;
   });
 
   r.post("/tierlists/create", fn (Context *ctx)
@@ -33,7 +32,7 @@ fn void main()
     String title = ctx.req.formData["title"] ?? "";
     if (title.trim() == "")
     {
-      return ctx.@render("tierlists/create.html", "err_title", "Title is required")!;
+      return ctx.@tmpl("tierlists/create.html", "err_title", "Title is required")!;
     }
     long id = sqlite3::@insert(db, "INSERT INTO tierlists(title) VALUES(?1)", title)!;
 
@@ -61,7 +60,7 @@ fn void main()
                                  "ORDER BY created_at DESC",
                                  tierlist.id)!;
 
-    ctx.@render("tierlists/edit.html",
+    ctx.@tmpl("tierlists/edit.html",
                 "tierlist",   tierlist,
                 "tiers",      tiers,
                 "images",     images,
@@ -150,7 +149,7 @@ fn void main()
   r.get("/images", fn (Context *ctx)
   {
     Image[] images = sqlite3::@query_all{Image}(db, "SELECT * FROM images ORDER BY created_at desc")!;
-    ctx.@render("images.html", "images", images)!;
+    ctx.@tmpl("images.html", "images", images)!;
   });
 
   r.post("/images", fn (Context *ctx)
@@ -171,7 +170,7 @@ fn void main()
     ctx.@status(201);
     if (try ctx.req.headers["HX-Request"])
     {
-      ctx.@render("partials/image.html",
+      ctx.@tmpl("partials/image.html",
                   "image",     image,
                   "draggable", true
       )!;
