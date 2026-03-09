@@ -81,3 +81,15 @@
     background-size: cover;
     background-position: center center;
 }
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+    gap: 1rem;
+
+    a.current {
+        --pico-color: var(--pico-primary-hover);
+        --pico-underline: var(--pico-primary-hover-underline);
+    }
+}

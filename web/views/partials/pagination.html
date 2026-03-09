@@ -1,0 +1,18 @@
+{%
+  -- int page
+  -- int totalPages
+%}
+
+{% if totalPages > 1 then %}
+<div class="pagination">
+  {% for i = 1, totalPages do %}
+  <a href="?page={{ i }}"
+     {% if i == page then %}
+     class="current"
+     {% end %}
+  >
+     {{ i }}
+  </a>
+  {% end %}
+</div>
+{% end %}
