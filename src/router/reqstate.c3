@@ -27,6 +27,7 @@ fn void ReqState.init(&self)
   self.filesUpload.init(&self.mem);
   self.req.headers.init(&self.mem);
   self.req.formData.init(&self.mem);
+  self.req.query.init(&self.mem);
   self.req.files.init(&self.mem);
   self.req.params.init(&self.mem);
 }

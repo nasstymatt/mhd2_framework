@@ -70,10 +70,25 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
   rs.req.path = path.cstr.str_view();
   rs.res.statusCode = 200;
 
-  mem::@scoped(&rs.mem)
-  {
-    populateRequestHeaders(mreq, &rs.req);
-  };
+  // Parse headers
+  mhd2::requestGetValuesCb(mreq, mhd2::ValueKind.HEADER,
+                           fn bool (void* cls, mhd2::ValueKind kind, mhd2::NameAndValue *nv)
+                           {
+                             ReqState* rs = (ReqState*)cls;
+                             rs.req.headers[nv.name.cstr.str_view()] = nv.value.str_view().copy(&rs.mem);
+                             return true;
+                           },
+                           rs);
+
+  // Parse query params
+  mhd2::requestGetValuesCb(mreq, mhd2::ValueKind.URI_QUERY_PARAM,
+                           fn bool (void *cls, mhd2::ValueKind kind, mhd2::NameAndValue *nv)
+                           {
+                             ReqState* rs = (ReqState*)cls;
+                             rs.req.query[nv.name.cstr.str_view()] = nv.value.str_view().copy(&rs.mem);
+                             return true;
+                           },
+                           rs);
 
   // PUT/POST
   if (uploadSize > 0 && (method == POST || method == PUT))
@@ -210,21 +225,6 @@ fn mhd2::Response* routerResponseToMHDResponse(router::Response *res) @local
   }
 
   return mres;
-}
-
-
-
-macro populateRequestHeaders(mhd2::Request *mreq, router::Request *req) @local
-{
-  mhd2::requestGetValuesCb(mreq,
-                           mhd2::ValueKind.HEADER,
-                           fn bool (void *cls, mhd2::ValueKind kind, mhd2::NameAndValue *nv)
-                           {
-                             router::Request *req = (router::Request*)cls;
-                             req.headers[nv.name.cstr.str_view().copy(mem)] = nv.value.str_view().copy(mem);
-                             return true;
-                           },
-                           req);
 }
 
 macro isz write_all(Fd fd, void *buf, usz count) @local

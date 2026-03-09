@@ -19,6 +19,7 @@ struct Request
   HashMap{String, String} headers;
   HashMap{String, String} params;
   HashMap{String, String} formData;
+  HashMap{String, String} query;
   HashMap{String, FileUpload} files;
 }
 
@@ -26,4 +27,16 @@ macro Request.@param(&self, #key)
 {
   if (try param = self.params[#key]) return param;
   return PARAM_NOT_FOUND~;
+}
+
+macro Request.@query(&self, #key, $Type = String)
+{
+  $switch ($Type):
+    $case int:
+      return self.query[#key]!.to_int();
+    $case String:
+      return self.query[#key];
+    $default:
+      $error("Type " +++ $Type.nameof +++ " is not handled");
+  $endswitch
 }
