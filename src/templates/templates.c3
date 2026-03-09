@@ -138,6 +138,10 @@ fn State*? getLua() @private
 
   l = lua::newState();
   if (l == null) return lua::LUA_ERROR~;
+
+  // pthreadSetSpecific is not used for access (tlocal handles that),
+  // but to trigger closeLuaState when a worker thread exits,
+  // since tlocal variables have no destructor of their own.
   pthreadSetSpecific(luaStateKey, l);
 
   lua::requireF(l, "_G", &lua::openBase, 1);
@@ -163,11 +167,12 @@ fn State*? getLua() @private
   return l;
 }
 
-<*
- @require $vacount % 2 == 0 : "Args should be even to match key, value constraint"
-*>
-macro @render_file(String path, ...)
+macro @render_file(String path, bool $packed = false, ...)
 {
+  $if !($vacount % 2 == 0 || $packed):
+    $error("Args should be even to match \"key\", value constraint");
+  $endif
+
   State* l = getLua()!;
   TemplateEntry te = findTemplate(path)!;
 
@@ -181,7 +186,7 @@ macro @render_file(String path, ...)
     return lua::LOAD_FAILED~;
   }
 
-  lua::@pushAll(l, $vasplat); // push vars table
+  lua::@pushAll(l, $packed, $vasplat); // push vars table
   lua::pushNil(l); // No yields allowed in child template, push nil as a second argument
 
   if (lua::pcall(l, 2, 1, 0) != lua::ThreadStatus.OK)

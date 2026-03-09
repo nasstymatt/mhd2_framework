@@ -89,7 +89,17 @@ macro Context.@error(&self, int sc = 500, String text = "")
   self.@status(sc);
 }
 
+macro Context.@tmpl_map(&self, String path, ...)
+{
+  self.@html(templates::@render_file(path, false, $vasplat)!);
+}
+
 macro Context.@tmpl(&self, String path, ...)
 {
-  self.@html(templates::@render_file(path, $vasplat)!);
+  self.@html(templates::@render_file(path, true, $vasplat)!);
 }
+
+// macro Context.@paginate(&self, int per_page = 15, )
+// {
+
+// }

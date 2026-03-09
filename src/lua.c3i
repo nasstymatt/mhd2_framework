@@ -127,25 +127,46 @@ macro @pushValue(State *l, #val)
         }
       $case STRUCT:
         createTable(l, 0, $typeof(#val).membersof.len);
-        $foreach $m : $typeof(#val).membersof:
-          pushLString(l, $m.nameof, $m.nameof.len);
-          @pushValue(l, #val.$eval($m.nameof));
-          setTable(l, -3);
-        $endforeach
+        @pushStructFields(l, #val);
     $endswitch
 }
 
-macro void @pushAll(State *l, ...)
+// Recursively push struct fields into the table at the top of the stack,
+// flattening inline structs so their fields appear directly in the parent table.
+macro @pushStructFields(State *l, #val)
 {
-  createTable(l, 0, $vacount / 2);
-  $for var $i = 0; $i < $vacount; $i += 2:
-    var $j = $i + 1;
-    $if $typeof($vaarg[$i]) != String:
-      $error("Template vars table key must be of type String");
+  $foreach $m : $typeof(#val).membersof:
+    $if $m.kindof == STRUCT:
+      @pushStructFields(l, #val.$eval($m.nameof));
+    $else
+      pushLString(l, $m.nameof, $m.nameof.len);
+      @pushValue(l, #val.$eval($m.nameof));
+      setTable(l, -3);
     $endif
+  $endforeach
+}
 
-    pushLString(l, $vaarg[$i], $vaarg[$i].len);
-    @pushValue(l, $vaarg[$j]);
+macro void @pushAll(State *l, bool $packed = false, ...)
+{
+  var $tl = $packed ? $vacount : $vacount / 2;
+
+  createTable(l, 0, $tl);
+
+  $for var $i = 0; $i < $vacount;:
+    $if $packed:
+      pushLString(l, $nameof($vaexpr[$i]), $nameof($vaexpr[$i]).len);
+      @pushValue(l, $vaarg[$i]);
+      $i++;
+    $else
+      var $j = $i + 1;
+      $if $typeof($vaarg[$i]) != String:
+        $error("Template vars table key must be of type String");
+      $endif
+
+      pushLString(l, $vaarg[$i], $vaarg[$i].len);
+      @pushValue(l, $vaarg[$j]);
+      $i += 2;
+    $endif;
     setTable(l, -3);
   $endfor
 }
