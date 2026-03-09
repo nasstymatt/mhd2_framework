@@ -1,17 +1,5 @@
 {% extends("base.html") %}
 
-{%
-local imageMap = {}
-for _, image in ipairs(allImages) do
-  imageMap[image.id] = image
-end
-local tierBuckets = {}
-for _, ti in ipairs(tierImages) do
-  tierBuckets[ti.tier_id] = tierBuckets[ti.tier_id] or {}
-  table.insert(tierBuckets[ti.tier_id], ti)
-end
-%}
-
 {% block("body") %}
 <main class="container" x-data>
   <header>
@@ -33,7 +21,7 @@ end
   <section>
     <h2>Tiers</h2>
     <div id="tiers">
-      {% for _, tier in ipairs(tiers) do %}
+      {% for _, tier in ipairs(tiersWithImages) do %}
       <div class="tier">
         <div class="label" style="--pico-background-color:{{ tier.color }};">
           <span>{{ tier.title }}</span>
@@ -42,9 +30,14 @@ end
              x-sort="tierImagesSort('{{ tierlist.id }}', '{{ tier.id }}', $item, $position)"
              x-sort:group="tier-images"
         >
-          {% for _, ti in ipairs(tierBuckets[tier.id] or {}) do %}
-          {% include("partials/image.html", { image = imageMap[ti.image_id], draggable = true }) %}
-          {% end %}
+        {%
+        for _, ti in ipairs(tier.images) do
+            include("partials/image.html", {
+                image = { id = ti.image_id, image_path = ti.image_path },
+                draggable = true,
+            })
+        end
+        %}
         </div>
       </div>
       {% end %}
