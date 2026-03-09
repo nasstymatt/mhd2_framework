@@ -8,9 +8,11 @@ function M.find_files(dir, opts)
 
 	local cmd = string.format('find %s -type %s -name "%s"', dir, type, ext)
 	local paths = {}
-	for path in io.popen(cmd):lines() do
+	local handle = io.popen(cmd)
+	for path in handle:lines() do
 		paths[#paths + 1] = path
 	end
+	handle:close()
 	table.sort(paths)
 	return paths
 end
@@ -18,6 +20,7 @@ end
 function M.read_all(path)
 	local f = assert(io.open(path, "rb"))
 	local s = f:read("*a")
+	f:close()
 	return s
 end
 
