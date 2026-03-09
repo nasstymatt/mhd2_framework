@@ -204,16 +204,26 @@ macro void? @assign_value_from_col(#target, Statement *stmt, int col) @local
   $endswitch
 }
 
+// Recursively match column names against struct fields, flattening inline structs.
+macro void? @map_struct_fields(#row, Statement *stmt, int col) @local
+{
+  $foreach $m : $typeof(#row).membersof:
+    $if $m.kindof == STRUCT:
+      @map_struct_fields(#row.$eval($m.nameof), stmt, col)!;
+    $else
+      if ((ZString)$m.nameof == column_name(stmt, col))
+      {
+        @assign_value_from_col(#row.$eval($m.nameof), stmt, col)!;
+      }
+    $endif
+  $endforeach
+}
+
 macro void? @map_row_to_model(TModel *row, Statement *stmt, int cols) <TModel> @local
 {
   for (int col = 0; col < cols; col++)
   {
-    $foreach $m : TModel.membersof:
-      if ((ZString)$m.nameof == column_name(stmt, col))
-      {
-        @assign_value_from_col(row.$eval($m.nameof), stmt, col)!;
-      }
-    $endforeach
+    @map_struct_fields(*row, stmt, col)!;
   }
 }
 
