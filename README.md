@@ -35,27 +35,78 @@ struct Post
 
 **Query and render:**
 ```c3
-r.get("/posts", fn (Context *ctx)
-{
-  Post[] posts = sqlite3::@query_all{Post}(db, "SELECT * FROM posts ORDER BY created_at DESC")!;
-  ctx.@tmpl("posts.html", posts)!;
-});
+module mymodule;
 
-r.get("/posts/:id", fn (Context *ctx)
-{
-  String id = ctx.req.@param("id")!;
-  Post post = sqlite3::@query_one{Post}(db, "SELECT * FROM posts WHERE id = ?1", id)!;
-  ctx.@tmpl("post.html", post)!;
-});
+import router;
+import db::models;
+import db::sqlite3;
 
-r.post("/posts", fn (Context *ctx)
+SQlite3* db;
+
+fn void init_db() @local @init
 {
-  String title = ctx.req.formData["title"] ?? "";
-  String body  = ctx.req.formData["body"]  ?? "";
-  if (title.trim() == "") return ctx.@error(400, "Title is required");
-  long id = sqlite3::@insert(db, "INSERT INTO posts(title, body) VALUES(?1, ?2)", title, body)!;
-  ctx.@redirect("/posts/:id", id);
-});
+  if (sqlite3::open_v2("./app.db",
+                       &db,
+                       OpenFlags.CREATE | OpenFlags.READWRITE | OpenFlags.FULLMUTEX,
+                       null
+  ) != 0)
+  {
+    unreachable("DB error: unable to open database: %s", sqlite3::errmsg(db));
+  }
+
+  sqlite3::busy_timeout(db, 5000);
+  sqlite3::@exec_ok(db,
+                "PRAGMA journal_mode=WAL;"
+                "PRAGMA synchronous=NORMAL;"
+                "PRAGMA foreign_keys=ON;"
+                "PRAGMA temp_store=MEMORY;");
+
+  sqlite3::@transaction(db)
+  {
+    // Init, schema, migrations, etc.
+    // sqlite3::@exec(db, $embed("../../sql/schema.sql"))!!;
+    // sqlite3::@exec(db, $embed("../../sql/triggers.sql"))!!;
+  }!!;
+}
+
+fn void close_db() @local @finalizer
+{
+  if (db == null) return;
+  sqlite3::close(db);
+  sqlite3::free(null);
+}
+
+fn void main()
+{
+  Router r;
+  defer r.free();
+  
+  r.get("/posts", fn (Context *ctx)
+  {
+    Post[] posts = sqlite3::@query_all{Post}(db, "SELECT * FROM posts ORDER BY created_at DESC")!;
+    ctx.@tmpl("posts.html", posts)!;
+  });
+
+  r.get("/posts/:id", fn (Context *ctx)
+  {
+    String id = ctx.req.@param("id")!;
+    Post post = sqlite3::@query_one{Post}(db, "SELECT * FROM posts WHERE id = ?1", id)!;
+    ctx.@tmpl("post.html", post)!;
+  });
+
+  r.post("/posts", fn (Context *ctx)
+  {
+    String title = ctx.req.formData["title"] ?? "";
+    String body  = ctx.req.formData["body"]  ?? "";
+    if (title.trim() == "") return ctx.@error(400, "Title is required");
+    long id = sqlite3::@insert(db, "INSERT INTO posts(title, body) VALUES(?1, ?2)", title, body)!;
+    ctx.@redirect("/posts/:id", id);
+  });
+
+  r.handleStatic("web/assets", "/assets", $feature(EMBED_ASSETS));
+
+  router::mhd2::listenAndServe(8080, &r)!!;
+}
 ```
 
 **Template (`posts.html`):**
