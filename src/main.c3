@@ -111,7 +111,7 @@ fn void main()
 
   r.post("/images", fn (Context *ctx)
   {
-    FileUpload? upload = ctx.req.files["image"]!;
+    FileUpload upload = ctx.req.files["image"]!;
 
     String outPath = string::tformat("data/images/%s", upload.fileName);
     if (libc::rename(upload.path.zstr_tcopy(), outPath.zstr_tcopy()) != 0)
