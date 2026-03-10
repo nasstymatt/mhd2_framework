@@ -1,2 +1,5 @@
 build/
-data/
+data/*
+!data/.gitkeep
+!data/tmp/.gitkeep
+!data/images/.gitkeep
