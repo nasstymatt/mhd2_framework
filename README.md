@@ -3,11 +3,13 @@ A minimal web "framework" (thin wrapper) for [C3](https://c3-lang.org), built ar
 [libmicrohttpd2](https://www.gnu.org/software/libmicrohttpd/), SQLite, and Lua templates.
 
 **Not a library nor a fully functional framework. This is just my way of doing things. Copy it, modify it, own it.**
+
 **NOTE: libmicrohttpd2 is experimental. You might need to debug some build issues manually.**
 
 ## What it is
 A working foundation for SSR web apps in C3. Compiles to a single static binary.
-**2.9MB** stripped binary including Lua VM, SQLite, embedded assets and templates.
+
+**1.9MB** stripped binary including Lua VM, SQLite, embedded assets and templates.
 
 ## What's inside
 - **Router** — middleware chain, route params, static file serving
@@ -201,7 +203,11 @@ make release
 See `src/main.c3` for a full example.
 
 ## Status
-> Personal/experimental. MHD2 is pre-release. 
+> Personal/experimental. MHD2 is pre-release.
+>
 > Use in production at your own risk — or better, read the source first.
-> **Platform:** Linux only (glibc). Tested on x86-64.
+>
+> **Platform:** Linux (glibc) & OSX. Tested on x86-64 & arm64.
+>
 > **Protocol:** HTTP/1.1 only — HTTP/2 is disabled in the MHD2 build.
+
