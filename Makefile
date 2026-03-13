@@ -26,11 +26,13 @@ deps-release: $(LIB_MHD_REL) $(LIB_LUA) $(LIB_SQLITE_REL)
 
 # dev: out-of-source, plain build, all features, easier to debug
 $(LIB_MHD_DEV):
-	cd third_party/libmicrohttpd2 && ./bootstrap
+	cd third_party/libmicrohttpd2 && LIBTOOLIZE=glibtoolize ./bootstrap
 	mkdir -p third_party/libmicrohttpd2/build-dev
 	cd third_party/libmicrohttpd2/build-dev && \
 		../configure \
 			--disable-maintainer-mode \
+			--disable-shared \
+			--enable-static \
 			--disable-https \
 			--disable-basic-auth \
 			--disable-digest-auth \
@@ -44,11 +46,13 @@ $(LIB_MHD_DEV):
 
 # release: out-of-source, compact code, no error messages or log strings
 $(LIB_MHD_REL):
-	cd third_party/libmicrohttpd2 && ./bootstrap
+	cd third_party/libmicrohttpd2 && LIBTOOLIZE=glibtoolize ./bootstrap
 	mkdir -p third_party/libmicrohttpd2/build-release
 	cd third_party/libmicrohttpd2/build-release && \
 		../configure \
 			--disable-maintainer-mode \
+			--disable-shared \
+			--enable-static \
 			--disable-https \
 			--disable-basic-auth \
 			--disable-digest-auth \

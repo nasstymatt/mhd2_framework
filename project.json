@@ -6,7 +6,7 @@
   "sources": [ "src/**" ],
   "output": "build",
   "script-dir": ".",
-  "linked-libraries": ["-l:libmicrohttpd2.a", "-l:liblua.a", "-l:libsqlite3.a"],
+  "linked-libraries": ["microhttpd2", "lua", "sqlite3"],
   "targets": {
     // dev: plain dep builds, templates/assets loaded from disk at runtime
     "tierlister": {
@@ -19,8 +19,6 @@
     "tierlister-release": {
       "type": "executable",
       "features": ["EMBED_TEMPLATES", "EMBED_ASSETS"],
-      "link-args": ["-static"],
-      "linked-libraries": ["-l:libmicrohttpd2.a", "-l:liblua.a", "-l:libsqlite3.a"],
       "linker-search-paths": ["third_party/libmicrohttpd2/build-release/src/mhd2/.libs", "third_party/lua", "third_party/sqlite/build-release"]
     }
   },
