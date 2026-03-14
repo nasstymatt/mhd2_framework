@@ -29,6 +29,7 @@ $(LIB_MHD_DEV):
 	cd third_party/libmicrohttpd2 && LIBTOOLIZE=glibtoolize ./bootstrap
 	mkdir -p third_party/libmicrohttpd2/build-dev
 	cd third_party/libmicrohttpd2/build-dev && \
+		../bootstrap && \
 		../configure \
 			--disable-maintainer-mode \
 			--disable-shared \
