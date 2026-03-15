@@ -1,6 +1,6 @@
-module router::mhd2;
+module router::microhttpd2;
 
-import mhd2;
+import microhttpd2;
 import router::reqstate;
 
 import std::collections::map;
@@ -17,15 +17,15 @@ extern fn int unlink(ZString path) @cname("unlink") @local;
 
 fn void panicHandler(void *cls, ZString file, ZString func, CUInt line, ZString message) @local
 {
-  io::eprintfn("MHD2 panic: %s:%u (%s): %s\n", file, line, func, message);
+  io::eprintfn("MICROHTTPD2 panic: %s:%u (%s): %s\n", file, line, func, message);
   abort();
 }
 
 fn void? listenAndServe(ushort port, Router *r)
 {
-  mhd2::libSetPanicFunc(&panicHandler, null);
+  microhttpd2::libSetPanicFunc(&panicHandler, null);
 
-  mhd2::Daemon *d = mhd2::daemonCreate(&handleRequest, r);
+  microhttpd2::Daemon *d = microhttpd2::daemonCreate(&handleRequest, r);
 
   if (d == null) return DAEMON_CREATE_FAILED~;
 
@@ -50,15 +50,15 @@ fn void? listenAndServe(ushort port, Router *r)
       },
   }};
 
-  if (mhd2::daemonSetOptions(d, opts.ptr, opts.len) != 0) return DAEMON_OPTIONS_FAILED~;
-  if (mhd2::daemonStart(d) != mhd2::StatusCode.OK) return DAEMON_START_FAILED~;
+  if (microhttpd2::daemonSetOptions(d, opts.ptr, opts.len) != 0) return DAEMON_OPTIONS_FAILED~;
+  if (microhttpd2::daemonStart(d) != microhttpd2::StatusCode.OK) return DAEMON_START_FAILED~;
 
   libc::getchar();
 
-  mhd2::daemonDestroy(d);
+  microhttpd2::daemonDestroy(d);
 }
 
-fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *path, mhd2::HttpMethod method, ulong uploadSize) @local
+fn microhttpd2::Action* handleRequest(void *cls, microhttpd2::Request *mreq, microhttpd2::String *path, microhttpd2::HttpMethod method, ulong uploadSize) @local
 {
   if (cls == null) unreachable("No router passed into handleRequest");
 
@@ -71,8 +71,8 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
   rs.res.statusCode = 200;
 
   // Parse headers
-  mhd2::requestGetValuesCb(mreq, mhd2::ValueKind.HEADER,
-                           fn bool (void* cls, mhd2::ValueKind kind, mhd2::NameAndValue *nv)
+  microhttpd2::requestGetValuesCb(mreq, microhttpd2::ValueKind.HEADER,
+                           fn bool (void* cls, microhttpd2::ValueKind kind, microhttpd2::NameAndValue *nv)
                            {
                              ReqState* rs = (ReqState*)cls;
                              rs.req.headers[nv.name.cstr.str_view()] = nv.value.str_view().copy(&rs.mem);
@@ -81,8 +81,8 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
                            rs);
 
   // Parse query params
-  mhd2::requestGetValuesCb(mreq, mhd2::ValueKind.URI_QUERY_PARAM,
-                           fn bool (void *cls, mhd2::ValueKind kind, mhd2::NameAndValue *nv)
+  microhttpd2::requestGetValuesCb(mreq, microhttpd2::ValueKind.URI_QUERY_PARAM,
+                           fn bool (void *cls, microhttpd2::ValueKind kind, microhttpd2::NameAndValue *nv)
                            {
                              ReqState* rs = (ReqState*)cls;
                              rs.req.query[nv.name.cstr.str_view()] = nv.value.str_view().copy(&rs.mem);
@@ -93,7 +93,7 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
   // PUT/POST
   if (uploadSize > 0 && (method == POST || method == PUT))
   {
-    return mhd2::actionParsePost(mreq, MAX_NON_STREAM_SIZE, 0,
+    return microhttpd2::actionParsePost(mreq, MAX_NON_STREAM_SIZE, 0,
                                  PostEncoding.OTHER, &postDataReader, rs, &postDataFinished, rs);
   }
 
@@ -107,16 +107,16 @@ fn mhd2::Action* handleRequest(void *cls, mhd2::Request *mreq, mhd2::String *pat
   {
     Context ctx = { r, &rs.req, &rs.res, 0 };
     r.handleRequest(&ctx);
-    return mhd2::actionFromResponse(mreq, routerResponseToMHDResponse(&rs.res));
+    return microhttpd2::actionFromResponse(mreq, routerResponseToMHDResponse(&rs.res));
   };
 }
 
-fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
+fn microhttpd2::UploadAction* postDataReader(microhttpd2::Request *mreq,
                                       void *cls,
-                                      mhd2::String *name,
-                                      mhd2::StringNullable *filename,
-                                      mhd2::StringNullable *contentType,
-                                      mhd2::StringNullable *encoding,
+                                      microhttpd2::String *name,
+                                      microhttpd2::StringNullable *filename,
+                                      microhttpd2::StringNullable *contentType,
+                                      microhttpd2::StringNullable *encoding,
                                       usz size,
                                       void *data,
                                       ulong off,
@@ -142,7 +142,7 @@ fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
         rs.req.formData[fieldName]!!.concat(mem, fieldValue);
       }
     };
-    return mhd2::uploadActionContinue(mreq);
+    return microhttpd2::uploadActionContinue(mreq);
   }
 
   // File upload
@@ -150,7 +150,7 @@ fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
   {
     char[*] mkpath = "data/tmp/file-XXXXXX\0";
     Fd fd = mkstemp(&mkpath[0]);
-    if (fd == -1) return mhd2::uploadActionContinue(mreq);
+    if (fd == -1) return microhttpd2::uploadActionContinue(mreq);
 
     String path = ((ZString)&mkpath).copy(&rs.mem);
 
@@ -158,12 +158,12 @@ fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
   }
 
   FileUploadState*? upload = rs.filesUpload.get_ref(fieldName);
-  if (catch upload) return mhd2::uploadActionContinue(mreq);
+  if (catch upload) return microhttpd2::uploadActionContinue(mreq);
 
-  // NOTE: we need this for now to avoid mhd2 upload offset regression bug
-  if (size > 1 * 1024 * 1024) return mhd2::uploadActionContinue(mreq);
+  // NOTE: we need this for now to avoid microhttpd2 upload offset regression bug
+  if (size > 1 * 1024 * 1024) return microhttpd2::uploadActionContinue(mreq);
 
-  if (upload.fd == -1 || write_all(upload.fd, data, size) == -1) return mhd2::uploadActionContinue(mreq);
+  if (upload.fd == -1 || write_all(upload.fd, data, size) == -1) return microhttpd2::uploadActionContinue(mreq);
 
   if (finalData)
   {
@@ -176,10 +176,10 @@ fn mhd2::UploadAction* postDataReader(mhd2::Request *mreq,
     };
   }
 
-  return mhd2::uploadActionContinue(mreq);
+  return microhttpd2::uploadActionContinue(mreq);
 }
 
-fn mhd2::UploadAction* postDataFinished(mhd2::Request *mreq, void *cls, PostParseResult parsingResult) @local
+fn microhttpd2::UploadAction* postDataFinished(microhttpd2::Request *mreq, void *cls, PostParseResult parsingResult) @local
 {
   ReqState *rs = (ReqState*)cls;
 
@@ -201,27 +201,27 @@ fn mhd2::UploadAction* postDataFinished(mhd2::Request *mreq, void *cls, PostPars
     if (parsingResult != OK) { ctx.@status(400); }
     else { ctx.r.handleRequest(&ctx); }
 
-    mhd2::Response* mres = routerResponseToMHDResponse(ctx.res);
-    return mhd2::uploadActionFromResponse(mreq, mres);
+    microhttpd2::Response* mres = routerResponseToMHDResponse(ctx.res);
+    return microhttpd2::uploadActionFromResponse(mreq, mres);
   };
 }
 
-fn mhd2::Response* routerResponseToMHDResponse(router::Response *res) @local
+fn microhttpd2::Response* routerResponseToMHDResponse(router::Response *res) @local
 {
-  mhd2::Response *mres;
+  microhttpd2::Response *mres;
   switch (res.bodyKind)
   {
     case FILEFD:
-      mres = mhd2::responseFromFd((mhd2::HttpStatusCode)res.statusCode, res.file.fd, res.file.offset, res.file.size);
+      mres = microhttpd2::responseFromFd((microhttpd2::HttpStatusCode)res.statusCode, res.file.fd, res.file.offset, res.file.size);
     case BUFFER_STATIC:
-      mres = mhd2::responseFromBufferStatic((mhd2::HttpStatusCode)res.statusCode, res.bodyStatic.len, res.bodyStatic);
+      mres = microhttpd2::responseFromBufferStatic((microhttpd2::HttpStatusCode)res.statusCode, res.bodyStatic.len, res.bodyStatic);
     case BUFFER:
     default:
-      mres = mhd2::responseFromBufferCopy((mhd2::HttpStatusCode)res.statusCode, res.body.len, res.body);
+      mres = microhttpd2::responseFromBufferCopy((microhttpd2::HttpStatusCode)res.statusCode, res.body.len, res.body);
   }
   foreach (&header : res.headers)
   {
-    mhd2::responseAddHeader(mres, header.name.zstr_tcopy(), header.value.zstr_tcopy());
+    microhttpd2::responseAddHeader(mres, header.name.zstr_tcopy(), header.value.zstr_tcopy());
   }
 
   return mres;

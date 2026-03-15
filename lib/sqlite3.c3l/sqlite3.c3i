@@ -1,4 +1,4 @@
-module db::sqlite3;
+module sqlite3;
 
 alias SQlite3 = void;
 alias Statement = void;

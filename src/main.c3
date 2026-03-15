@@ -133,5 +133,5 @@ fn void main()
   r.handleStatic("web/assets", "/assets", $feature(EMBED_ASSETS));
   r.handleStatic("data/images", "/uploads/images");
 
-  router::mhd2::listenAndServe(8080, &r)!!;
+  router::microhttpd2::listenAndServe(8080, &r)!!;
 }

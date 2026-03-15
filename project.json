@@ -5,8 +5,9 @@
   "version": "0.1.0",
   "sources": [ "src/**" ],
   "output": "build",
+  "dependency-search-paths": ["lib"],
+  "dependencies": ["lua", "sqlite3", "microhttpd2"],
   "script-dir": ".",
-  "linked-libraries": ["microhttpd2", "lua", "sqlite3"],
   "targets": {
     // dev: plain dep builds, templates/assets loaded from disk at runtime
     "tierlister": {

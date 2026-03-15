@@ -1,0 +1,45 @@
+{
+  "provides": "lua",
+  "targets": {
+    "macos-aarch64": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "macos-x64": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "linux-x64": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "linux-x86": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "openbsd-x86": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "openbsd-x64": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "freebsd-x64": {
+      "linked-libraries": [
+        "lua"
+      ]
+    },
+    "freebsd-x86": {
+      "linked-libraries": [
+        "lua"
+      ]
+    }
+  }
+}

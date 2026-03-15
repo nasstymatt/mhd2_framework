@@ -1,4 +1,4 @@
-module mhd2;
+module microhttpd2;
 
 alias Request = void;
 alias Response = void;
@@ -84,7 +84,7 @@ constdef UploadActionType
 
 union UploadActionData
 {
-  mhd2::Response *response;
+  Response *response;
   ulong[2] _abi;
 }
 
@@ -161,24 +161,24 @@ constdef ValueKind : CUInt
 
 struct NameAndValue
 {
-  mhd2::String name;
-  mhd2::StringNullable value;
+  microhttpd2::String name;
+  microhttpd2::StringNullable value;
 }
 
 alias PanicCallback = fn void (void *cls, ZString file, ZString func, CUInt line, ZString message);
 fn void libSetPanicFunc(PanicCallback cb, void *cbCls) @cname("MHD_lib_set_panic_func");
-alias NameValueIterator = fn bool (void *cls, ValueKind kind, mhd2::NameAndValue *nv);
+alias NameValueIterator = fn bool (void *cls, ValueKind kind, NameAndValue *nv);
 fn usz requestGetValuesCb(Request *request, ValueKind kind, NameValueIterator iterator, void *iteratorCls)
   @cname("MHD_request_get_values_cb");
 fn bool requestGetValue(Request *request, ValueKind kind, ZString key, StringNullable *valueOut)
   @cname("MHD_request_get_value");
-alias HandlerFn = fn Action* (void *cls, Request *mreq, mhd2::String *path, HttpMethod method, ulong uploadSize);
+alias HandlerFn = fn Action* (void *cls, Request *mreq, microhttpd2::String *path, HttpMethod method, ulong uploadSize);
 alias FreeCallback = fn void (void *cls);
 alias PostDataReader = fn UploadAction* (Request *req, void *cls,
-                                         mhd2::String *name,
-                                         mhd2::StringNullable *filename,
-                                         mhd2::StringNullable *contentType,
-                                         mhd2::StringNullable *encoding,
+                                         microhttpd2::String *name,
+                                         StringNullable *filename,
+                                         StringNullable *contentType,
+                                         StringNullable *encoding,
                                          usz size, void *data, ulong off,
                                          CInt finalData);
 alias PostDataFinished = fn UploadAction* (Request *mreq, void *cls, PostParseResult parsingResult);
@@ -194,7 +194,7 @@ fn Response *responseFromBuffer(HttpStatusCode sc, usz bufSize, char *buf, FreeC
 fn Response *responseFromBufferCopy(HttpStatusCode sc, usz bufSize, char *buf)
   @cname("MHD_response_from_buffer_copy");
 fn Response* responseFromEmpty() @cname("MHD_response_from_empty");
-fn mhd2::String *httpMethodToString(HttpMethod sc) @cname("MHD_http_method_to_string");
+fn microhttpd2::String *httpMethodToString(HttpMethod sc) @cname("MHD_http_method_to_string");
 fn StatusCode responseAddHeader(Response *mres, ZString name, ZString value) @cname("MHD_response_add_header");
 fn Response *responseFromFd(HttpStatusCode sc, int fd, ulong offset, ulong size) @cname("MHD_response_from_fd");
 fn Action* actionParsePost(Request *mreq, usz bufferSize, usz maxNonStreamSize,
@@ -209,11 +209,11 @@ fn UploadAction* uploadActionFromResponse(
 
 struct PostField
 {
-  mhd2::String name;
-  mhd2::StringNullable value;
-  mhd2::StringNullable filename;
-  mhd2::StringNullable contentType;
-  mhd2::StringNullable transferEncoding;
+  microhttpd2::String name;
+  StringNullable value;
+  StringNullable filename;
+  StringNullable contentType;
+  StringNullable transferEncoding;
 }
 
 alias PostDataIterator = fn bool (void *cls, PostField *data);

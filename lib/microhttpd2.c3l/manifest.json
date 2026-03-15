@@ -1,0 +1,45 @@
+{
+  "provides": "microhttpd2",
+  "targets": {
+    "macos-aarch64": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "macos-x64": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "linux-x64": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "linux-x86": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "openbsd-x86": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "openbsd-x64": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "freebsd-x64": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    },
+    "freebsd-x86": {
+      "linked-libraries": [
+        "microhttpd2"
+      ]
+    }
+  }
+}
