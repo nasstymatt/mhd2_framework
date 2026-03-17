@@ -9,7 +9,7 @@ A minimal web "framework" (thin wrapper) for [C3](https://c3-lang.org), built ar
 ## What it is
 A working foundation for SSR web apps in C3. Compiles to a single static binary.
 
-**1.9MB** stripped binary including Lua VM, SQLite, embedded assets and templates.
+**2.9MB** stripped binary including Lua VM, SQLite, embedded assets and templates.
 
 ## What's inside
 - **Router** — middleware chain, route params, static file serving

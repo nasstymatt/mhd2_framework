@@ -20,6 +20,7 @@
     "tierlister-release": {
       "type": "executable",
       "features": ["EMBED_TEMPLATES", "EMBED_ASSETS"],
+      "link-args": ["-static"],
       "linker-search-paths": ["third_party/libmicrohttpd2/build-release/src/mhd2/.libs", "third_party/lua", "third_party/sqlite/build-release"]
     }
   },
