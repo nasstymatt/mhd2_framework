@@ -5,6 +5,7 @@ import router::reqstate;
 
 import std::collections::list;
 import std::io;
+import std::core::dstring;
 
 struct Header
 {
@@ -27,6 +28,7 @@ constdef HttpMethod
 
 struct Router
 {
+  List{String} current_prefix;
   List{Step} steps;
 }
 
@@ -95,7 +97,26 @@ fn void Router.route(&self, String path, HttpMethod method, HandlerFn handler_fn
 {
   self.@push_step((RouteStep) {
     .method = method,
-    .path = path,
+    .path = self.prefix_path(path),
     .handler = handler_fn
   });
+}
+
+fn String Router.prefix_path(&self, String path)
+{
+  if (self.current_prefix.len() == 0) return path;
+
+  DString s = dstring::temp_with_capacity(64);
+  foreach (seg : self.current_prefix) s.append(seg);
+  if (path != "/") s.append(path);
+
+  return s.str_view();
+}
+
+macro Router.@group(&self, String prefix; @body())
+{
+  self.current_prefix.push(prefix);
+  defer self.current_prefix.remove_last();
+
+  @body();
 }

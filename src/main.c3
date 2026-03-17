@@ -35,53 +35,52 @@ fn void main()
     w.@redirect("/tierlists/:id", id);
   });
 
-  r.get("/tierlists/:id", fn (Response* w, Request* r)
+  r.@group("/tierlists/:id")
   {
-    int per_page = 15;
-    int page     = r.@query("page", int) ?? 1;
-    int offset   = (page - 1) * per_page;
-    String id    = r.@param("id")!;
-
-    TierList tierlist                  = models::tierlists::@get_one(id)!;
-    TierWithImages[] tiers_with_images = tierlist.get_tiers_with_images()!;
-    Image[] images                     = tierlist.get_available_images(per_page, offset)!;
-    long total                         = tierlist.count_available_images()!;
-    int total_pages                    = (int)(total + per_page - 1) / per_page;
-
-    templates::@render(w, "tierlists/edit.html",
-              tierlist, tiers_with_images,
-              images, page, total_pages)!;
-  });
-
-  r.put("/tierlists/:id", fn (Response* w, Request* r)
-  {
-    String id    = r.@param("id")!;
-    String title = r.form_data["title"] ?? "";
-    if (title.trim() == "") return w.error(400, "Title is required");
-
-    models::tierlists::update(id, title)!;
-
-    w.headers.push({ "HX-Refresh", "true"});
-  });
-
-  r.delete("/tierlists/:id", fn (Response* w, Request* r)
-  {
-    String id = r.@param("id")!;
-
-    models::tierlists::delete(id)!;
-
-    if (try r.headers["HX-Request"])
+    r.get("/", fn (Response* w, Request* r)
     {
-      w.headers.push({ "HX-Redirect", "/" });
-    }
-  });
+      int per_page = 15;
+      int page     = r.@query("page", int) ?? 1;
+      int offset   = (page - 1) * per_page;
+      String id    = r.@param("id")!;
+
+      TierList tierlist                  = models::tierlists::@get_one(id)!;
+      TierWithImages[] tiers_with_images = tierlist.get_tiers_with_images()!;
+      Image[] images                     = tierlist.get_available_images(per_page, offset)!;
+      long total                         = tierlist.count_available_images()!;
+      int total_pages                    = (int)(total + per_page - 1) / per_page;
+
+      templates::@render(w, "tierlists/edit.html",
+                         tierlist, tiers_with_images,
+                         images, page, total_pages)!;
+    });
+
+    r.put("/", fn (Response* w, Request* r)
+    {
+      String id    = r.@param("id")!;
+      String title = r.form_data["title"] ?? "";
+      if (title.trim() == "") return w.error(400, "Title is required");
+
+      models::tierlists::update(id, title)!;
+
+      w.headers.push({ "HX-Refresh", "true"});
+    });
+
+    r.delete("/", fn (Response* w, Request* r)
+    {
+      String id = r.@param("id")!;
+      models::tierlists::delete(id)!;
+
+      if (try r.headers["HX-Request"]) w.headers.push({ "HX-Redirect", "/" });
+    });
+  };
 
   r.put("/tierlists/:id/images/:image_id", fn (Response* w, Request* r)
   {
-    String tierlist_id       = r.@param("id")!;
-    String image_id = r.@param("image_id")!;
-    String? tier_id = r.form_data["tier_id"]!;
-    String? pos_str = r.form_data["position"]!;
+    String tierlist_id = r.@param("id")!;
+    String image_id    = r.@param("image_id")!;
+    String? tier_id    = r.form_data["tier_id"]!;
+    String? pos_str    = r.form_data["position"]!;
 
     int rank = pos_str.to_int()!! + 1; // 1-based index from x-sort
 
@@ -90,8 +89,8 @@ fn void main()
 
   r.delete("/tierlists/:id/images/:image_id", fn (Response* w, Request* r)
   {
-    String tierlist_id       = r.@param("id")!;
-    String image_id = r.@param("image_id")!;
+    String tierlist_id = r.@param("id")!;
+    String image_id    = r.@param("image_id")!;
 
     models::tier_images::@remove(tierlist_id, image_id)!;
   });
