@@ -1,11 +1,16 @@
 module router;
 
 import router::steps;
+import router::reqstate;
 
 import std::collections::list;
 import std::io;
 
-alias HandlerFn = fn void? (Context *ctx);
+struct Header
+{
+  String name;
+  String value;
+}
 
 constdef HttpMethod
 {
@@ -35,17 +40,17 @@ fn void Router.free(&self)
   self.steps.free();
 }
 
-fn void Router.handleRequest(&self, Context *ctx)
+fn void Router.handle_request(&self, Context* ctx)
 {
   if (catch err = ctx.next())
   {
     switch (err)
     {
       case router::PARAM_NOT_FOUND:
-        ctx.@not_found();
+        ctx.res.status_code = 404;
       default:
         io::eprintfn("Unhandler router error: %s", err);
-        ctx.@error();
+        ctx.res.status_code = 500;
     }
   }
 }
@@ -56,41 +61,41 @@ macro void Router.@push_step(&self, #step) @local
   self.steps.last()!!.init();
 }
 
-fn void Router.use(&self, HandlerFn f)
+fn void Router.use(&self, MiddlewareFn f)
 {
   self.@push_step((MiddlewareStep) { f });
 }
 
-fn void Router.handleStatic(&self, String srcPath, String mountAt, bool embed = false)
+fn void Router.handle_static(&self, String src_path, String mount_at, bool embed = false)
 {
-  self.@push_step((MountStaticFolderStep) { srcPath, mountAt, embed });
+  self.@push_step((MountStaticFolderStep) { src_path, mount_at, embed });
 }
 
-fn void Router.get(&self, String path, HandlerFn handlerFn)
+fn void Router.get(&self, String path, HandlerFn handler_fn)
 {
-  self.route(path, GET, handlerFn);
+  self.route(path, GET, handler_fn);
 }
 
-fn void Router.post(&self, String path, HandlerFn handlerFn)
+fn void Router.post(&self, String path, HandlerFn handler_fn)
 {
-  self.route(path, POST, handlerFn);
+  self.route(path, POST, handler_fn);
 }
 
-fn void Router.put(&self, String path, HandlerFn handlerFn)
+fn void Router.put(&self, String path, HandlerFn handler_fn)
 {
-  self.route(path, PUT, handlerFn);
+  self.route(path, PUT, handler_fn);
 }
 
-fn void Router.delete(&self, String path, HandlerFn handlerFn)
+fn void Router.delete(&self, String path, HandlerFn handler_fn)
 {
-  self.route(path, DELETE, handlerFn);
+  self.route(path, DELETE, handler_fn);
 }
 
-fn void Router.route(&self, String path, HttpMethod method, HandlerFn handlerFn)
+fn void Router.route(&self, String path, HttpMethod method, HandlerFn handler_fn)
 {
   self.@push_step((RouteStep) {
     .method = method,
     .path = path,
-    .handler = handlerFn
+    .handler = handler_fn
   });
 }

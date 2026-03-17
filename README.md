@@ -1,5 +1,5 @@
 # mhd2_framework
-A minimal web "framework" (thin wrapper) for [C3](https://c3-lang.org), built around 
+A minimal web "framework" (thin wrapper) for [C3](https://c3-lang.org), built around
 [libmicrohttpd2](https://www.gnu.org/software/libmicrohttpd/), SQLite, and Lua templates.
 
 **Not a library nor a fully functional framework. This is just my way of doing things. Copy it, modify it, own it.**
@@ -17,9 +17,9 @@ A working foundation for SSR web apps in C3. Compiles to a single static binary.
 ```c3
 TierList[] lists = sqlite3::@query_all{TierList}(db, "SELECT * FROM tierlists");
 ```
-- **Lua template engine** — `extends`, `block`, `include`, hot reload in dev, 
+- **Lua template engine** — `extends`, `block`, `include`, hot reload in dev,
   per-thread Lua VM, file-watch cache invalidation.
-- **Request lifecycle** — arena-per-request memory, multipart file uploads, 
+- **Request lifecycle** — arena-per-request memory, multipart file uploads,
   form, headers, query parsing.
 - **MHD2 wrapper** — worker thread pool, clean separation from router.
 
@@ -41,8 +41,8 @@ struct Post
 module mymodule;
 
 import router;
-import db::models;
-import db::sqlite3;
+import templates;
+import sqlite3;
 
 SQlite3* db;
 
@@ -83,32 +83,40 @@ fn void main()
 {
   Router r;
   defer r.free();
-  
-  r.get("/posts", fn (Context *ctx)
+
+  // Middleware receives Context* for pipeline control
+  r.use(fn (Context* ctx)
+  {
+    io::printn(ctx.req);
+    ctx.next()!;
+  });
+
+  // Route handlers receive (Response* w, Request* r)
+  r.get("/posts", fn (Response* w, Request* r)
   {
     Post[] posts = sqlite3::@query_all{Post}(db, "SELECT * FROM posts ORDER BY created_at DESC")!;
-    ctx.@tmpl("posts.html", posts)!;
+    templates::@render(w, "posts.html", posts)!;
   });
 
-  r.get("/posts/:id", fn (Context *ctx)
+  r.get("/posts/:id", fn (Response* w, Request* r)
   {
-    String id = ctx.req.@param("id")!;
-    Post post = sqlite3::@query_one{Post}(db, "SELECT * FROM posts WHERE id = ?1", id)!;
-    ctx.@tmpl("post.html", post)!;
+    String id   = r.@param("id")!;
+    Post post   = sqlite3::@query_one{Post}(db, "SELECT * FROM posts WHERE id = ?1", id)!;
+    templates::@render(w, "post.html", post)!;
   });
 
-  r.post("/posts", fn (Context *ctx)
+  r.post("/posts", fn (Response* w, Request* r)
   {
-    String title = ctx.req.formData["title"] ?? "";
-    String body  = ctx.req.formData["body"]  ?? "";
-    if (title.trim() == "") return ctx.@error(400, "Title is required");
+    String title = r.form_data["title"] ?? "";
+    String body  = r.form_data["body"]  ?? "";
+    if (title.trim() == "") return w.error(400, "Title is required");
     long id = sqlite3::@insert(db, "INSERT INTO posts(title, body) VALUES(?1, ?2)", title, body)!;
-    ctx.@redirect("/posts/:id", id);
+    w.@redirect("/posts/:id", id);
   });
 
-  r.handleStatic("web/assets", "/assets", $feature(EMBED_ASSETS));
+  r.handle_static("web/assets", "/assets", $feature(EMBED_ASSETS));
 
-  router::mhd2::listenAndServe(8080, &r)!!;
+  router::microhttpd2::listen_and_serve(8080, &r)!!;
 }
 ```
 
@@ -156,6 +164,18 @@ c3c build --trust=full -D EMBED_TEMPLATES
 c3c build --trust=full -D EMBED_TEMPLATES -D EMBED_ASSETS
 ```
 
+## Template rendering
+
+Route handlers render via `templates::@render` — variables are passed by name using C3's compile-time `$nameof`:
+
+```c3
+// Packed args — variable names become Lua variable names
+templates::@render(w, "post.html", post, page, total_pages)!;
+
+// Key-value pairs — explicit names
+templates::@render_kv(w, "post.html", "err_title", "Title is required")!;
+```
+
 ## Building
 ```bash
 make        # build deps + dev binary
@@ -169,9 +189,9 @@ The Makefile builds all three C dependencies from source and links them statical
 
 **Dev build** — full debug info, all features enabled, easier to iterate.
 
-**Release build** — MHD2 compiled with `--enable-compact-code` and `--disable-messages`, 
+**Release build** — MHD2 compiled with `--enable-compact-code` and `--disable-messages`,
 SQLite compiled with unused features stripped at the preprocessor level:
-no UTF-16, no window functions, no CTEs, no BLOB literals, no incremental I/O, 
+no UTF-16, no window functions, no CTEs, no BLOB literals, no incremental I/O,
 no trace hooks, no authorization callbacks, and more — only what this app actually uses.
 
 The result is a single statically linked ELF with no external dependencies at runtime.
@@ -186,7 +206,7 @@ The result is a single statically linked ELF with no external dependencies at ru
 | Frontend | HTMX + Alpine.js + Pico CSS |
 
 ## Included app
-A tier list application — drag-and-drop image ordering across tiers, 
+A tier list application — drag-and-drop image ordering across tiers,
 file uploads, fractional position algorithm, HTMX partial updates.
 Used as a real-world integration test for the framework.
 
@@ -210,4 +230,3 @@ See `src/main.c3` for a full example.
 > **Platform:** Linux (glibc) & OSX. Tested on x86-64 & arm64.
 >
 > **Protocol:** HTTP/1.1 only — HTTP/2 is disabled in the MHD2 build.
-

@@ -38,14 +38,14 @@ fn TierWithImages[]? TierList.get_tiers_with_images(&self)
   return result;
 }
 
-macro Image[]? TierList.@get_available_images(&self, #limit, #offset)
+macro Image[]? TierList.get_available_images(&self, usz limit, usz offset)
 {
-  return models::images::@get_not_in_tierlist(self.id, #limit, #offset);
+  return models::images::get_not_in_tierlist(self.id, limit, offset);
 }
 
-macro long? TierList.@count_available_images(&self)
+fn long? TierList.count_available_images(&self)
 {
-  return models::images::@count_not_in_tierlist(self.id);
+  return models::images::count_not_in_tierlist(self.id);
 }
 
 struct Tier

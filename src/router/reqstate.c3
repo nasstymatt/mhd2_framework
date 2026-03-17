@@ -1,5 +1,7 @@
 module router::reqstate;
 
+import router::steps;
+
 import std::collections::map;
 import libc;
 
@@ -11,12 +13,18 @@ struct FileUploadState
   String path;
 }
 
-struct ReqState
+struct Context
 {
   Router* r;
   router::Request req;
   router::Response res;
-  HashMap{String, FileUploadState} filesUpload;
+  usz route_idx;
+}
+
+struct ReqState
+{
+  inline Context ctx;
+  HashMap{String, FileUploadState} files_upload;
   ArenaAllocator mem;
   char[REQUEST_ARENA_SIZE] buf;
 }
@@ -24,9 +32,9 @@ struct ReqState
 fn void ReqState.init(&self)
 {
   self.mem.init(&self.buf);
-  self.filesUpload.init(&self.mem);
+  self.files_upload.init(&self.mem);
   self.req.headers.init(&self.mem);
-  self.req.formData.init(&self.mem);
+  self.req.form_data.init(&self.mem);
   self.req.query.init(&self.mem);
   self.req.files.init(&self.mem);
   self.req.params.init(&self.mem);
@@ -42,4 +50,14 @@ fn ReqState* new()
   ReqState* rs = mem::new(ReqState);
   rs.init();
   return rs;
+}
+
+fn void? Context.next(&self)
+{
+  while (self.route_idx < self.r.steps.len())
+  {
+    Step *s = &self.r.steps[self.route_idx++];
+    return s.handle(self)!;
+  }
+  self.res.status_code = 404;
 }

@@ -6,8 +6,8 @@ faultdef PARAM_NOT_FOUND;
 
 struct FileUpload
 {
-  String fileName;
-  String contentType;
+  String file_name;
+  String content_type;
   String path;
   // usz size;
 }
@@ -18,7 +18,7 @@ struct Request
   String path;
   HashMap{String, String} headers;
   HashMap{String, String} params;
-  HashMap{String, String} formData;
+  HashMap{String, String} form_data;
   HashMap{String, String} query;
   HashMap{String, FileUpload} files;
 }

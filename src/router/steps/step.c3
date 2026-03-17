@@ -1,11 +1,16 @@
 module router::steps;
 
+import router::reqstate;
+
 import std::collections::map;
 import std::io::path;
 import std::io::file;
 import libc;
 
 extern fn Fd open(ZString path, int flags) @cname("open") @local;
+
+alias HandlerFn = fn void? (Response* w, Request* r);
+alias MiddlewareFn = fn void? (Context* ctx);
 
 struct EmbedAsset @local @if($feature(EMBED_ASSETS))
 {
@@ -19,16 +24,16 @@ $exec("lua", { "scripts/embed_assets.lua" }) @if($feature(EMBED_ASSETS));
 interface Step
 {
   fn void init();
-  fn void? handle(Context *ctx);
+  fn void? handle(Context* ctx);
   fn void free();
 }
 
 struct MiddlewareStep (Step)
 {
-  HandlerFn handler;
+  MiddlewareFn handler;
 }
 
-fn void? MiddlewareStep.handle(&self, Context *ctx) @dynamic
+fn void? MiddlewareStep.handle(&self, Context* ctx) @dynamic
 {
   self.handler(ctx)!;
 }
@@ -46,69 +51,71 @@ struct RouteStep (Step)
   HttpMethod method;
   String path;
   HandlerFn handler;
-  String[] pathSegments;
+  String[] path_segments;
 }
 
 fn void RouteStep.init(&self) @dynamic
 {
-  self.pathSegments = self.path.split(mem, "/");
+  self.path_segments = self.path.split(mem, "/");
 }
 
-fn void? RouteStep.handle(&self, Context *ctx) @dynamic
+fn void? RouteStep.handle(&self, Context* ctx) @dynamic
 {
+
   if (ctx.req.method != self.method) return ctx.next();
 
-  String[] reqPathSegments = ctx.req.path.tsplit("/");
-  if (reqPathSegments.len != self.pathSegments.len) return ctx.next();
+  String[] req_path_segments = ctx.req.path.tsplit("/");
+  if (req_path_segments.len != self.path_segments.len) return ctx.next();
 
   // Validate params
-  for (usz i = 0; i < reqPathSegments.len; i++)
+  for (usz i = 0; i < req_path_segments.len; i++)
   {
-    if (self.pathSegments[i].starts_with(":"))
+    if (self.path_segments[i].starts_with(":"))
     {
-      ctx.req.params[self.pathSegments[i][1..]] = reqPathSegments[i];
+      ctx.req.params[self.path_segments[i][1..]] = req_path_segments[i];
       continue;
     }
-    if (self.pathSegments[i] != reqPathSegments[i]) return ctx.next();
+    if (self.path_segments[i] != req_path_segments[i]) return ctx.next();
   }
 
-  self.handler(ctx)!;
+  self.handler(&ctx.res, &ctx.req)!;
 }
 
 fn void RouteStep.free(&self) @dynamic
 {
-  free(self.pathSegments);
+  free(self.path_segments);
 }
 
 
 struct MountStaticFolderStep (Step)
 {
-  String srcPath;
-  String mountAt;
+  String src_path;
+  String mount_at;
   bool embed;
 }
 
-fn void? MountStaticFolderStep.handle(&self, Context *ctx) @dynamic
+fn void? MountStaticFolderStep.handle(&self, Context* ctx) @dynamic
 {
-
   // TODO: Introduce HEAD method, cache, mime for static files
-  if (ctx.req.method == GET && ctx.req.path.starts_with(self.mountAt))
+  if (ctx.req.method == GET && ctx.req.path.starts_with(self.mount_at))
   {
     // TODO: Investigate backslashes (on windows) and static root escaping e.g. assets/../templates
     Path p = path::temp(
-      self.srcPath.tconcat(
-        ctx.req.path[self.mountAt.len..].trim_right("/"))
+      self.src_path.tconcat(
+        ctx.req.path[self.mount_at.len..].trim_right("/"))
     )!!;
+
+    ctx.res.headers.push({ "Cache-Control", "public, max-age=31536000, immutable" });
 
     if (self.embed)
     {
       $if $feature(EMBED_ASSETS):
-        foreach (&embedAsset : EMBEDDED_ASSETS)
+        foreach (&embed_asset : EMBEDDED_ASSETS)
         {
-          if (embedAsset.path == p.str_view())
+          if (embed_asset.path == p.str_view())
           {
-            ctx.res.bodyKind = BUFFER_STATIC;
-            ctx.res.bodyStatic = embedAsset.bytes;
+            ctx.res.body_kind = BUFFER_STATIC;
+            ctx.res.body_static = embed_asset.bytes;
             return;
           }
         }
@@ -118,10 +125,10 @@ fn void? MountStaticFolderStep.handle(&self, Context *ctx) @dynamic
       if (path::is_file(p))
       {
         Fd fd = open(p.str_view().zstr_tcopy(), 0);
-        if (fd == -1) return ctx.@not_found();
+        if (fd == -1) { ctx.res.status_code = 404; return; }
 
         ctx.res.file.fd = fd;
-        ctx.res.bodyKind = FILEFD;
+        ctx.res.body_kind = FILEFD;
         ctx.res.file.offset = 0;
         ctx.res.file.size = path::file_size(p)!;
         return;

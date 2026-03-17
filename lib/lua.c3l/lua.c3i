@@ -24,38 +24,38 @@ constdef Type
   FUNCTION = 6,
 }
 
-fn State *newState() @cname("luaL_newstate");
-fn void *openlibs(State *l) @cname("luaL_openlibs");
-fn ThreadStatus loadBufferX(State *l, char *bytecode, usz size, char *name, char *mode) @cname("luaL_loadbufferx");
-fn ThreadStatus pcallK(State *l, int nargs, int nresults, int errfunc, int ctx, void *k) @cname("lua_pcallk");
-fn Type getType(State *l, int idx) @cname("lua_type");
+fn State *new_state() @cname("luaL_newstate");
+fn void *open_libs(State *l) @cname("luaL_openlibs");
+fn ThreadStatus load_buffer_x(State *l, char *bytecode, usz size, char *name, char *mode) @cname("luaL_loadbufferx");
+fn ThreadStatus pcall_k(State *l, int nargs, int nresults, int errfunc, int ctx, void *k) @cname("lua_pcallk");
+fn Type get_type(State *l, int idx) @cname("lua_type");
 fn void close(State *l) @cname("lua_close");
-fn ZString toLString(State *l, int idx, usz *len) @cname("lua_tolstring");
-fn void setTop(State *l, int idx) @cname("lua_settop");
-fn void requireF(State *l, ZString modname, void *openf, int glb) @cname("luaL_requiref");
-fn void openBase(State *l) @cname("luaopen_base");
-fn void openTable(State *l) @cname("luaopen_table");
-fn void openString(State *l) @cname("luaopen_string");
-fn void openMath(State *l) @cname("luaopen_math");
-fn void openUtf8(State *l) @cname("luaopen_utf8");
-fn void pushLString(State *l, char* buf, usz len) @cname("lua_pushlstring");
-fn void pushBool(State *l, bool b) @cname("lua_pushboolean");
-fn void pushInt(State *l, long b) @cname("lua_pushinteger");
-fn void pushNumber(State *l, double b) @cname("lua_pushnumber");
-fn void pushNil(State *l) @cname("lua_pushnil");
-fn void pushValue(State *l, int idx) @cname("lua_pushvalue");
-fn void createTable(State *l, int narr, int nrec) @cname("lua_createtable");
-fn void setTable(State *l, int idx) @cname("lua_settable");
-fn int getTable(State *l, int idx) @cname("lua_gettable");
-fn void setField(State* l, int idx, ZString name) @cname("lua_setfield");
-fn long toIntegerX(State* l, int idx, int* isNum) @cname("lua_tointegerx");
-fn int getField(State* l, int idx, ZString name) @cname("lua_getfield");
+fn ZString to_l_string(State *l, int idx, usz *len) @cname("lua_tolstring");
+fn void set_top(State *l, int idx) @cname("lua_settop");
+fn void require_f(State *l, ZString modname, void *openf, int glb) @cname("luaL_requiref");
+fn void open_base(State *l) @cname("luaopen_base");
+fn void open_table(State *l) @cname("luaopen_table");
+fn void open_string(State *l) @cname("luaopen_string");
+fn void open_math(State *l) @cname("luaopen_math");
+fn void open_utf8(State *l) @cname("luaopen_utf8");
+fn void push_l_string(State *l, char* buf, usz len) @cname("lua_pushlstring");
+fn void push_bool(State *l, bool b) @cname("lua_pushboolean");
+fn void push_int(State *l, long b) @cname("lua_pushinteger");
+fn void push_number(State *l, double b) @cname("lua_pushnumber");
+fn void push_nil(State *l) @cname("lua_pushnil");
+fn void push_value(State *l, int idx) @cname("lua_pushvalue");
+fn void create_table(State *l, int narr, int nrec) @cname("lua_createtable");
+fn void set_table(State *l, int idx) @cname("lua_settable");
+fn int get_table(State *l, int idx) @cname("lua_gettable");
+fn void set_field(State* l, int idx, ZString name) @cname("lua_setfield");
+fn long to_integer_x(State* l, int idx, int* is_num) @cname("lua_tointegerx");
+fn int get_field(State* l, int idx, ZString name) @cname("lua_getfield");
 fn void rotate(State *l, int idx, int n) @cname("lua_rotate");
-fn ZString checkLString(State *l, int idx, usz *len) @cname("luaL_checklstring");
-fn int lError(State *l, ZString format, ZString name) @cname("luaL_error");
+fn ZString check_l_string(State *l, int idx, usz *len) @cname("luaL_checklstring");
+fn int l_error(State *l, ZString format, ZString name) @cname("luaL_error");
 fn int error(State *l) @cname("lua_error");
-fn void pushClosure(State *l, CFunction f, int idx) @cname("lua_pushcclosure");
-fn void setGlobal(State *l, ZString name) @cname("lua_setglobal");
+fn void push_closure(State *l, CFunction f, int idx) @cname("lua_pushcclosure");
+fn void set_global(State *l, ZString name) @cname("lua_setglobal");
 
 macro remove(State* l, int idx)
 {
@@ -65,97 +65,97 @@ macro remove(State* l, int idx)
 
 macro ThreadStatus pcall(State *l, int nargs, int nresults, int errfunc)
 {
-  return pcallK(l, nargs, nresults, errfunc, 0, null);
+  return pcall_k(l, nargs, nresults, errfunc, 0, null);
 }
 
-macro bool isInteger(State *l, int idx)
+macro bool is_integer(State *l, int idx)
 {
-  return getType(l, idx) == Type.NUMBER;
+  return get_type(l, idx) == Type.NUMBER;
 }
 
-macro bool isString(State *l, int idx)
+macro bool is_string(State *l, int idx)
 {
-  return getType(l, idx) == Type.STRING;
+  return get_type(l, idx) == Type.STRING;
 }
 
-macro bool isFunction(State* l, int idx)
+macro bool is_function(State* l, int idx)
 {
-  return getType(l, idx) == Type.FUNCTION;
+  return get_type(l, idx) == Type.FUNCTION;
 }
 
-macro bool isTable(State* l, int idx)
+macro bool is_table(State* l, int idx)
 {
-  return getType(l, idx) == Type.TABLE;
+  return get_type(l, idx) == Type.TABLE;
 }
 
 
-macro ZString toString(State *l, int idx)
+macro ZString to_string(State *l, int idx)
 {
-  return toLString(l, idx, &&0);
+  return to_l_string(l, idx, &&0);
 }
 
 macro void pop(State *l, int n)
 {
-  return setTop(l, -n - 1);
+  return set_top(l, -n - 1);
 }
 
-macro @pushValue(State *l, #val)
+macro @push_value(State *l, #val)
 {
     $switch $typeof(#val):
       $case String:
-        pushLString(l, #val, #val.len);
+        push_l_string(l, #val, #val.len);
         return;
       $case bool:
-        pushBool(l, #val);
+        push_bool(l, #val);
         return;
     $endswitch
 
     $switch $kindof(#val):
       $case SIGNED_INT:
       $case UNSIGNED_INT:
-        pushInt(l, #val);
+        push_int(l, #val);
       $case FLOAT:
-        pushNumber(l, #val);
+        push_number(l, #val);
       $case SLICE:
       $case ARRAY:
-        createTable(l, #val.len, 0);
+        create_table(l, #val.len, 0);
         for (usz i = 0; i < #val.len; i++)
         {
-          pushInt(l, i + 1);
-          @pushValue(l, #val[i]);
-          setTable(l, -3);
+          push_int(l, i + 1);
+          @push_value(l, #val[i]);
+          set_table(l, -3);
         }
       $case STRUCT:
-        createTable(l, 0, $typeof(#val).membersof.len);
-        @pushStructFields(l, #val);
+        create_table(l, 0, $typeof(#val).membersof.len);
+        @push_struct_fields(l, #val);
     $endswitch
 }
 
 // Recursively push struct fields into the table at the top of the stack,
 // flattening inline structs so their fields appear directly in the parent table.
-macro @pushStructFields(State *l, #val)
+macro @push_struct_fields(State *l, #val)
 {
   $foreach $m : $typeof(#val).membersof:
     $if $m.kindof == STRUCT:
-      @pushStructFields(l, #val.$eval($m.nameof));
+      @push_struct_fields(l, #val.$eval($m.nameof));
     $else
-      pushLString(l, $m.nameof, $m.nameof.len);
-      @pushValue(l, #val.$eval($m.nameof));
-      setTable(l, -3);
+      push_l_string(l, $m.nameof, $m.nameof.len);
+      @push_value(l, #val.$eval($m.nameof));
+      set_table(l, -3);
     $endif
   $endforeach
 }
 
-macro void @pushAll(State *l, bool $packed = false, ...)
+macro void @push_all(State *l, bool $packed = false, ...)
 {
   var $tl = $packed ? $vacount : $vacount / 2;
 
-  createTable(l, 0, $tl);
+  create_table(l, 0, $tl);
 
   $for var $i = 0; $i < $vacount;:
     $if $packed:
-      pushLString(l, $nameof($vaexpr[$i]), $nameof($vaexpr[$i]).len);
-      @pushValue(l, $vaarg[$i]);
+      push_l_string(l, $nameof($vaexpr[$i]), $nameof($vaexpr[$i]).len);
+      @push_value(l, $vaarg[$i]);
       $i++;
     $else
       var $j = $i + 1;
@@ -163,22 +163,22 @@ macro void @pushAll(State *l, bool $packed = false, ...)
         $error("Template vars table key must be of type String");
       $endif
 
-      pushLString(l, $vaarg[$i], $vaarg[$i].len);
-      @pushValue(l, $vaarg[$j]);
+      push_l_string(l, $vaarg[$i], $vaarg[$i].len);
+      @push_value(l, $vaarg[$j]);
       $i += 2;
     $endif;
-    setTable(l, -3);
+    set_table(l, -3);
   $endfor
 }
 
-macro String popError(State* l)
+macro String @pop_error(State* l)
 {
-  if (!isString(l, -1)) {
+  if (!is_string(l, -1)) {
     pop(l, 1);
     return "unknown lua error";
   }
 
-  String msg = toString(l, -1).str_view();
+  String msg = to_string(l, -1).str_view();
   pop(l, 1);
   return msg;
 }

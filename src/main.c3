@@ -12,126 +12,129 @@ fn void main()
   Router r;
   defer r.free();
 
-  r.get("/", fn (Context *ctx)
+  r.get("/", fn (Response* w, Request* r)
   {
     TierList[] tierlists = models::tierlists::get_all()!;
-    ctx.@tmpl("index.html", tierlists)!;
+    templates::@render(w, "index.html", tierlists)!;
   });
 
-  r.get("/tierlists/create", fn (Context *ctx)
+  r.get("/tierlists/create", fn (Response* w, Request* r)
   {
-    ctx.@tmpl("tierlists/create.html")!;
+    templates::@render(w, "tierlists/create.html")!;
   });
 
-  r.post("/tierlists/create", fn (Context *ctx)
+  r.post("/tierlists/create", fn (Response* w, Request* r)
   {
-    String title = ctx.req.formData["title"] ?? "";
+    String title = r.form_data["title"] ?? "";
     if (title.trim() == "")
     {
-      return ctx.@tmpl_map("tierlists/create.html", "err_title", "Title is required")!;
+      return templates::@render_kv(w, "tierlists/create.html", "err_title", "Title is required")!;
     }
     long id = models::tierlists::create(title)!;
 
-    ctx.@redirect("/tierlists/:id", id);
+    w.@redirect("/tierlists/:id", id);
   });
 
-  r.get("/tierlists/:id", fn (Context *ctx)
+  r.get("/tierlists/:id", fn (Response* w, Request* r)
   {
-    int perPage = 15;
-    int page    = ctx.req.@query("page", int) ?? 1;
-    int offset  = (page - 1) * perPage;
-    String id   = ctx.req.@param("id")!;
+    int per_page = 15;
+    int page     = r.@query("page", int) ?? 1;
+    int offset   = (page - 1) * per_page;
+    String id    = r.@param("id")!;
 
-    TierList tierlist                = models::tierlists::@get_one(id)!;
-    TierWithImages[] tiersWithImages = tierlist.get_tiers_with_images()!;
-    Image[] images                   = tierlist.@get_available_images(perPage, offset)!;
-    long total                       = tierlist.@count_available_images()!;
-    int totalPages                   = (int)(total + perPage - 1) / perPage;
+    TierList tierlist                  = models::tierlists::@get_one(id)!;
+    TierWithImages[] tiers_with_images = tierlist.get_tiers_with_images()!;
+    Image[] images                     = tierlist.get_available_images(per_page, offset)!;
+    long total                         = tierlist.count_available_images()!;
+    int total_pages                    = (int)(total + per_page - 1) / per_page;
 
-    ctx.@tmpl("tierlists/edit.html",
-              tierlist, tiersWithImages,
-              images, page, totalPages)!;
+    templates::@render(w, "tierlists/edit.html",
+              tierlist, tiers_with_images,
+              images, page, total_pages)!;
   });
 
-  r.put("/tierlists/:id", fn (Context *ctx)
+  r.put("/tierlists/:id", fn (Response* w, Request* r)
   {
-    String id    = ctx.req.@param("id")!;
-    String title = ctx.req.formData["title"] ?? "";
-    if (title.trim() == "") return ctx.@error(400, "Title is required");
+    String id    = r.@param("id")!;
+    String title = r.form_data["title"] ?? "";
+    if (title.trim() == "") return w.error(400, "Title is required");
 
     models::tierlists::update(id, title)!;
 
-    ctx.res.@add_header("HX-Refresh", "true");
+    w.headers.push({ "HX-Refresh", "true"});
   });
 
-  r.delete("/tierlists/:id", fn (Context *ctx)
+  r.delete("/tierlists/:id", fn (Response* w, Request* r)
   {
-    String id = ctx.req.@param("id")!;
+    String id = r.@param("id")!;
 
     models::tierlists::delete(id)!;
 
-    if (try ctx.req.headers["HX-Request"])
+    if (try r.headers["HX-Request"])
     {
-      ctx.res.@add_header("HX-Redirect", "/");
+      w.headers.push({ "HX-Redirect", "/" });
     }
   });
 
-  r.put("/tierlists/:id/images/:image_id", fn (Context *ctx)
+  r.put("/tierlists/:id/images/:image_id", fn (Response* w, Request* r)
   {
-    String id      = ctx.req.@param("id")!;
-    String imageId = ctx.req.@param("image_id")!;
-    String? tierId = ctx.req.formData["tier_id"]!;
-    String? posStr = ctx.req.formData["position"]!;
+    String tierlist_id       = r.@param("id")!;
+    String image_id = r.@param("image_id")!;
+    String? tier_id = r.form_data["tier_id"]!;
+    String? pos_str = r.form_data["position"]!;
 
-    int rank = posStr.to_int()!! + 1; // 1-based index from x-sort
+    int rank = pos_str.to_int()!! + 1; // 1-based index from x-sort
 
-    models::tier_images::move(id, imageId, tierId, rank)!;
+    models::tier_images::move(tierlist_id, image_id, tier_id, rank)!;
   });
 
-  r.delete("/tierlists/:id/images/:image_id", fn (Context *ctx)
+  r.delete("/tierlists/:id/images/:image_id", fn (Response* w, Request* r)
   {
-    String id      = ctx.req.@param("id")!;
-    String imageId = ctx.req.@param("image_id")!;
+    String tierlist_id       = r.@param("id")!;
+    String image_id = r.@param("image_id")!;
 
-    models::tier_images::@remove(id, imageId)!;
+    models::tier_images::@remove(tierlist_id, image_id)!;
   });
 
-  r.get("/images", fn (Context *ctx)
+  r.get("/images", fn (Response* w, Request* r)
   {
-    int perPage = 15;
-    int page    = ctx.req.@query("page", int) ?? 1;
-    int offset  = (page - 1) * perPage;
+    int per_page = 15;
+    int page     = r.@query("page", int) ?? 1;
+    int offset   = (page - 1) * per_page;
 
-    long total     = models::images::count_all()!;
-    int totalPages = (int)(total + perPage - 1) / perPage;
-    Image[] images = models::images::@get_all(perPage, offset)!;
+    long total      = models::images::count_all()!;
+    int total_pages = (int)(total + per_page - 1) / per_page;
+    Image[] images  = models::images::get_all(per_page, offset)!;
 
-    ctx.@tmpl("images.html", images, page, totalPages)!;
+    templates::@render(w, "images.html", images, page, total_pages)!;
   });
 
-  r.post("/images", fn (Context *ctx)
+  r.post("/images", fn (Response* w, Request* r)
   {
-    FileUpload upload = ctx.req.files["image"]!;
+    FileUpload upload = r.files["image"]!;
 
-    String outPath = string::tformat("data/images/%s", upload.fileName);
-    if (libc::rename(upload.path.zstr_tcopy(), outPath.zstr_tcopy()) != 0)
+    String out_path = string::tformat("data/images/%s", upload.file_name);
+    if (libc::rename(upload.path.zstr_tcopy(), out_path.zstr_tcopy()) != 0)
     {
       io::eprintfn("Unable to rename file %s, errno = %d", upload.path, libc::errno());
-      return ctx.@error(500);
+      return w.error(500);
     }
 
-    long id     = models::images::create(outPath, upload.fileName)!;
+    long id     = models::images::create(out_path, upload.file_name)!;
     Image image = models::images::@get_by_id(id)!;
 
-    ctx.@status(201);
-    if (try ctx.req.headers["HX-Request"])
+    w.status_code = 201;
+    if (try r.headers["HX-Request"])
     {
-      ctx.@tmpl_map("partials/image.html", "image", image, "draggable", true)!;
+      templates::@render_kv(w, "partials/image.html",
+                             "image",     image,
+                             "draggable", true
+      )!;
     }
   });
 
-  r.handleStatic("web/assets", "/assets", $feature(EMBED_ASSETS));
-  r.handleStatic("data/images", "/uploads/images");
+  r.handle_static("web/assets", "/assets", $feature(EMBED_ASSETS));
+  r.handle_static("data/images", "/uploads/images");
 
-  router::microhttpd2::listenAndServe(8080, &r)!!;
+  router::microhttpd2::listen_and_serve(8080, &r)!!;
 }

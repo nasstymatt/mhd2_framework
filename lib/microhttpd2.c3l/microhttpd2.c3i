@@ -129,15 +129,15 @@ struct DaemonOptionValueBind
 union WorkModeParam
 {
   ulong[2] _abi;
-  uint numWorkerThreads;
+  uint num_worker_threads;
 }
 
 // sizeof = 24
 union DaemonOptionValue
 {
   ulong[3] _abi;
-  WorkModeWithParam workMode;
-  DaemonOptionValueBind bindPort;
+  WorkModeWithParam work_mode;
+  DaemonOptionValueBind bind_port;
 }
 
 struct DaemonOptionAndValue
@@ -166,43 +166,43 @@ struct NameAndValue
 }
 
 alias PanicCallback = fn void (void *cls, ZString file, ZString func, CUInt line, ZString message);
-fn void libSetPanicFunc(PanicCallback cb, void *cbCls) @cname("MHD_lib_set_panic_func");
+fn void lib_set_panic_func(PanicCallback cb, void *cb_cls) @cname("MHD_lib_set_panic_func");
 alias NameValueIterator = fn bool (void *cls, ValueKind kind, NameAndValue *nv);
-fn usz requestGetValuesCb(Request *request, ValueKind kind, NameValueIterator iterator, void *iteratorCls)
+fn usz request_get_values_cb(Request *request, ValueKind kind, NameValueIterator iterator, void *iterator_cls)
   @cname("MHD_request_get_values_cb");
-fn bool requestGetValue(Request *request, ValueKind kind, ZString key, StringNullable *valueOut)
+fn bool request_get_value(Request *request, ValueKind kind, ZString key, StringNullable *value_out)
   @cname("MHD_request_get_value");
-alias HandlerFn = fn Action* (void *cls, Request *mreq, microhttpd2::String *path, HttpMethod method, ulong uploadSize);
+alias HandlerFn = fn Action* (void *cls, Request *mreq, microhttpd2::String *path, HttpMethod method, ulong upload_size);
 alias FreeCallback = fn void (void *cls);
 alias PostDataReader = fn UploadAction* (Request *req, void *cls,
                                          microhttpd2::String *name,
                                          StringNullable *filename,
-                                         StringNullable *contentType,
+                                         StringNullable *content_type,
                                          StringNullable *encoding,
                                          usz size, void *data, ulong off,
-                                         CInt finalData);
-alias PostDataFinished = fn UploadAction* (Request *mreq, void *cls, PostParseResult parsingResult);
+                                         CInt final_data);
+alias PostDataFinished = fn UploadAction* (Request *mreq, void *cls, PostParseResult parsing_result);
 alias UpgradeHandler = fn void (void *cls, Request *req, UploadActionData *urh);
-fn Daemon* daemonCreate(HandlerFn handlerFn, void *cls) @cname("MHD_daemon_create");
-fn StatusCode daemonStart(Daemon *d) @cname("MHD_daemon_start");
-fn void daemonDestroy(Daemon *d) @cname("MHD_daemon_destroy");
-fn StatusCode daemonSetOptions(Daemon* d, DaemonOptionAndValue* options, usz optionsMaxNum)
+fn Daemon* daemon_create(HandlerFn handler_fn, void *cls) @cname("MHD_daemon_create");
+fn StatusCode daemon_start(Daemon *d) @cname("MHD_daemon_start");
+fn void daemon_destroy(Daemon *d) @cname("MHD_daemon_destroy");
+fn StatusCode daemon_set_options(Daemon* d, DaemonOptionAndValue* options, usz options_max_num)
   @cname("MHD_daemon_set_options");
-fn Action *actionFromResponse(Request *mreq, Response *mres) @cname("MHD_action_from_response");
-fn Response *responseFromBuffer(HttpStatusCode sc, usz bufSize, char *buf, FreeCallback freeCb, void *freeCbCls)
+fn Action* action_from_response(Request *mreq, Response *mres) @cname("MHD_action_from_response");
+fn Response* response_from_buffer(HttpStatusCode sc, usz buf_size, char *buf, FreeCallback free_cb, void *free_cb_cls)
   @cname("MHD_response_from_buffer");
-fn Response *responseFromBufferCopy(HttpStatusCode sc, usz bufSize, char *buf)
+fn Response* response_from_buffer_copy(HttpStatusCode sc, usz buf_size, char *buf)
   @cname("MHD_response_from_buffer_copy");
-fn Response* responseFromEmpty() @cname("MHD_response_from_empty");
-fn microhttpd2::String *httpMethodToString(HttpMethod sc) @cname("MHD_http_method_to_string");
-fn StatusCode responseAddHeader(Response *mres, ZString name, ZString value) @cname("MHD_response_add_header");
-fn Response *responseFromFd(HttpStatusCode sc, int fd, ulong offset, ulong size) @cname("MHD_response_from_fd");
-fn Action* actionParsePost(Request *mreq, usz bufferSize, usz maxNonStreamSize,
-                                        PostEncoding enc, PostDataReader streamReader,
-                                        void* readerCls, PostDataFinished doneCb,
-                                        void* doneCbCls) @cname("MHD_action_parse_post");
-fn UploadAction* uploadActionContinue(Request *mreq) @cname("MHD_upload_action_continue");
-fn UploadAction* uploadActionFromResponse(
+fn Response* response_from_empty() @cname("MHD_response_from_empty");
+fn microhttpd2::String* http_method_to_string(HttpMethod sc) @cname("MHD_http_method_to_string");
+fn StatusCode response_add_header(Response *mres, ZString name, ZString value) @cname("MHD_response_add_header");
+fn Response* response_from_fd(HttpStatusCode sc, int fd, ulong offset, ulong size) @cname("MHD_response_from_fd");
+fn Action* action_parse_post(Request *mreq, usz buffer_size, usz max_non_stream_size,
+                                        PostEncoding enc, PostDataReader stream_reader,
+                                        void* reader_cls, PostDataFinished done_cb,
+                                        void* done_cb_cls) @cname("MHD_action_parse_post");
+fn UploadAction* upload_action_continue(Request *mreq) @cname("MHD_upload_action_continue");
+fn UploadAction* upload_action_from_response(
     Request* mreq,
     Response* response
 ) @cname("MHD_upload_action_from_response");
@@ -212,20 +212,20 @@ struct PostField
   microhttpd2::String name;
   StringNullable value;
   StringNullable filename;
-  StringNullable contentType;
-  StringNullable transferEncoding;
+  StringNullable content_type;
+  StringNullable transfer_encoding;
 }
 
 alias PostDataIterator = fn bool (void *cls, PostField *data);
 
-fn usz requestGetPostDataCb(Request *mreq, PostDataIterator iterator, void *iteratorCls) @cname("MHD_request_get_post_data_cb");
+fn usz request_get_post_data_cb(Request *mreq, PostDataIterator iterator, void *iterator_cls) @cname("MHD_request_get_post_data_cb");
 
-macro Response *responseFromBufferStatic(HttpStatusCode sc, usz bufLen, char *buf)
+macro Response *response_from_buffer_static(HttpStatusCode sc, usz buf_len, char *buf)
 {
-  return responseFromBuffer(sc, bufLen, buf, null, null);
+  return response_from_buffer(sc, buf_len, buf, null, null);
 }
 
-macro Action* actionAbortRequest(Request *mreq)
+macro Action* action_abort_request(Request *mreq)
 {
   return null;
 }

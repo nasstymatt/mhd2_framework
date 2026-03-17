@@ -83,7 +83,7 @@ constdef ColumnType
 fn Result open_v2(ZString filename, SQlite3 **db, int flags, ZString zVfs) @cname("sqlite3_open_v2");
 fn Result busy_timeout(SQlite3 *db, int ms) @cname("sqlite3_busy_timeout");
 fn Result exec(SQlite3 *db, ZString sql, ExecCallback callback, void *data, ZString *errMsg) @cname("sqlite3_exec");
-fn Result prepare_v2(SQlite3 *db, ZString sql, int nByte, Statement **stmt, ZString *tail) @cname("sqlite3_prepare_v2");
+fn Result prepare_v2(SQlite3 *db, ZString sql, int n_byte, Statement **stmt, ZString *tail) @cname("sqlite3_prepare_v2");
 fn Result finalize(Statement *stmt) @cname("sqlite3_finalize");
 fn Result bind_double(Statement *stmt, int index, double value) @cname("sqlite3_bind_double");
 fn Result bind_int(Statement *stmt, int index, int value) @cname("sqlite3_bind_int");
@@ -132,6 +132,7 @@ macro void? @bind_all(Statement *stmt, ...)
       $case String:
         if (bind_text(stmt, $i + 1, $vaarg[$i].zstr_tcopy(), -1, TRANSIENT) != OK) return BIND_FAILED~;
       $case long:
+      $case usz:
         if (bind_int64(stmt, $i + 1, $vaarg[$i]) != OK) return BIND_FAILED~;
       $case int:
         if (bind_int(stmt, $i + 1, $vaarg[$i]) != OK) return BIND_FAILED~;

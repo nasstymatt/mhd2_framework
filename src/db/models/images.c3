@@ -3,7 +3,7 @@ module db::models::images;
 import db::models;
 import sqlite3;
 
-macro Image[]? @get_not_in_tierlist(#tierlist_id, #limit, #offset)
+macro Image[]? get_not_in_tierlist(long tierlist_id, usz limit, usz offset)
 {
   return sqlite3::@query_all{Image}(db::instance,
     `SELECT * FROM images i
@@ -13,22 +13,22 @@ macro Image[]? @get_not_in_tierlist(#tierlist_id, #limit, #offset)
      )
      ORDER BY created_at DESC
      LIMIT ?2 OFFSET ?3`,
-    #tierlist_id, #limit, #offset)!;
+    tierlist_id, limit, offset)!;
 }
 
-macro long? @count_not_in_tierlist(#tierlist_id)
+fn long? count_not_in_tierlist(long tierlist_id)
 {
   return sqlite3::@query_one{long}(db::instance,
     "SELECT COUNT(*) FROM images i WHERE NOT EXISTS "
     "(SELECT 1 FROM tier_images ti WHERE ti.image_id = i.id AND ti.tierlist_id = ?1)",
-    #tierlist_id)!;
+    tierlist_id)!;
 }
 
-macro Image[]? @get_all(#limit, #offset)
+macro Image[]? get_all(usz limit, usz offset)
 {
   return sqlite3::@query_all{Image}(db::instance,
     "SELECT * FROM images ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
-    #limit, #offset)!;
+    limit, offset)!;
 }
 
 fn long? count_all()
